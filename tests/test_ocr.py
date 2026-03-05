@@ -1,61 +1,76 @@
 import os
 import cv2
-import numpy as np
-from scipy.io import loadmat
+import shutil
 
 from src.ocr_engine import NumberExtractor
+from src.generate_dynamic_numbers import generate_dataset
 
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATASET_PATH = os.path.join(BASE_DIR, "data", "raw", "test_32x32.mat")
+OUTPUT_DIR = "data/synthetic_dynamic"
+ERROR_DIR = os.path.join(OUTPUT_DIR, "error")
+ERROR_LOG = os.path.join(OUTPUT_DIR, "errors.txt")
 
-NUM_SAMPLES = 1000
-RESIZE_DIM = 128
-
-
-def load_svhn(path):
-    data = loadmat(path)
-    return data["X"], data["y"]
-
-
-def get_image(X, y, index):
-    img = X[:, :, :, index]
-    label = y[index][0]
-    if label == 10:
-        label = 0
-    return img, label
-
+NUM_IMAGES = 1000
 
 def evaluate():
-    if not os.path.exists(DATASET_PATH):
-        raise FileNotFoundError(f"Dataset not found at {DATASET_PATH}")
 
-    X, y = load_svhn(DATASET_PATH)
+    # יצירת דאטה חדשה
+    data_dir = generate_dataset(
+        output_dir=OUTPUT_DIR,
+        num_images=NUM_IMAGES
+    )
+
+    # 🔥 יצירת תיקיית error בתוך הדאטה שנוצרה
+    error_dir = os.path.join(data_dir, "error")
+    os.makedirs(error_dir, exist_ok=True)
+
+    error_log = os.path.join(data_dir, "errors.txt")
+
     extractor = NumberExtractor()
 
+    total = 0
     correct = 0
-    total = min(NUM_SAMPLES, X.shape[3])
 
-    for i in range(total):
-        img, true_label = get_image(X, y, i)
+    # ניקוי לוג קודם
+    open(error_log, "w").close()
 
-        img = img.astype(np.uint8)
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        img = cv2.resize(img, (RESIZE_DIM, RESIZE_DIM),
-                         interpolation=cv2.INTER_CUBIC)
+    for filename in sorted(os.listdir(data_dir)):
 
-        predicted = extractor.predict(img)
+        if not filename.endswith(".png"):
+            continue
 
-        if predicted is not None and predicted == true_label:
+        # לא לעבד שוב קבצים שכבר בתיקיית error
+        if filename == "error" or filename == "errors.txt":
+            continue
+
+        true_label = filename.split("_")[0]
+
+        path = os.path.join(data_dir, filename)
+        img = cv2.imread(path)
+
+        prediction = extractor.predict(img)
+
+        total += 1
+
+        is_correct = prediction is not None and str(prediction) == true_label
+
+        if is_correct:
             correct += 1
+        else:
+            # רישום שגיאה
+            with open(error_log, "a") as f:
+                f.write(f"{filename} | TRUE: {true_label} | PRED: {prediction}\n")
 
-        if i % 100 == 0:
-            print(f"Processed {i}/{total}")
+            # העתקה לתיקיית error
+            shutil.copy(path, os.path.join(error_dir, filename))
+
+        print(f"{filename} | True: {true_label} | Pred: {prediction}")
 
     print("\n======================")
-    print("Accuracy:", correct / total)
+    print("Total:", total)
+    print("Correct:", correct)
+    print("Accuracy:", correct / total if total > 0 else 0)
     print("======================")
-
-
+    
 if __name__ == "__main__":
     evaluate()
