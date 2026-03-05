@@ -7,7 +7,9 @@ class NumberExtractor:
         self.reader = PaddleOCR(
             use_angle_cls=True,
             lang='en',
-            use_gpu=False  # כרגע CPU
+            use_gpu=False,  # כרגע CPU
+            show_log=False  # 🔥 לכבות לוגים
+            #there is another parameters that can be adjusted
         )
 
     def predict(self, image):

@@ -64,7 +64,7 @@ def evaluate():
             # העתקה לתיקיית error
             shutil.copy(path, os.path.join(error_dir, filename))
 
-        print(f"{filename} | True: {true_label} | Pred: {prediction}")
+            print(f"{filename} | True: {true_label} | Pred: {prediction}")
 
     print("\n======================")
     print("Total:", total)
