@@ -8,7 +8,7 @@
 #SBATCH --mail-type=ALL
 
 # עבור לתיקיית הפרויקט
-cd $SLURM_SUBMIT_DIR
+cd ${SLURM_SUBMIT_DIR:-$(pwd)}
 
 # יצירת/הפעלת venv
 if [ ! -d ".venv" ]; then
@@ -25,7 +25,7 @@ source .venv/bin/activate
 # fi
 
 # חשוב מאוד כדי ש-src יזוהה כמודול
-export PYTHONPATH=$SLURM_SUBMIT_DIR
+export PYTHONPATH=${SLURM_SUBMIT_DIR:-$(pwd)}
 export PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
 
 echo "Running tests..."

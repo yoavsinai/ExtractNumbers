@@ -10,7 +10,7 @@ OUTPUT_DIR = "data/synthetic_dynamic"
 ERROR_DIR = os.path.join(OUTPUT_DIR, "error")
 ERROR_LOG = os.path.join(OUTPUT_DIR, "errors.txt")
 
-NUM_IMAGES = 1000
+NUM_IMAGES = 100
 
 def evaluate():
 
