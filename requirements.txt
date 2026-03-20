@@ -1,0 +1,31 @@
+# General Utilities
+tqdm
+requests
+urllib3
+PyYAML
+
+# Data Science & ML
+numpy
+pandas
+matplotlib
+scikit-learn
+h5py
+
+# Image Processing
+opencv-python
+Pillow
+
+# Deep Learning
+torch
+torchvision
+datasets
+kagglehub
+
+# Other
+reportlab
+Brotli
+Unidecode
+ipykernel
+kagglesdk
+pycryptodomex
+mysql-connector-python
