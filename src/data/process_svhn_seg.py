@@ -1,3 +1,4 @@
+import hashlib
 import os
 import tarfile
 import urllib.request
@@ -8,8 +9,25 @@ import numpy as np
 DATA_RAW = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../data/raw/svhn'))
 DATA_PROCESSED = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../data/segmentation/natural'))
 
+# SHA-256 of the SVHN Format 1 test archive from https://ufldl.stanford.edu/housenumbers/
+SVHN_TEST_SHA256 = "57ac9ceb530e4aa85b55d991be8fc49c695b3d71c6f6a88afea86549efde7fb5"
+
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
+
+def _verify_sha256(file_path, expected_sha256):
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256.update(chunk)
+    actual = sha256.hexdigest()
+    if actual != expected_sha256:
+        raise ValueError(
+            f"SHA-256 checksum mismatch for {file_path}.\n"
+            f"Expected: {expected_sha256}\n"
+            f"Actual:   {actual}\n"
+            "The file may be corrupted or tampered with; please remove it and retry."
+        )
 
 def get_name(f, idx):
     # Depending on the dimension of the dataset, it can be a reference or a value.
@@ -40,7 +58,8 @@ def download_and_extract():
     if not os.path.exists(tar_path):
         print("Downloading SVHN test Format 1 (~276MB)...")
         urllib.request.urlretrieve(url, tar_path)
-    
+        print("Verifying download integrity...")
+        _verify_sha256(tar_path, SVHN_TEST_SHA256)
     test_dir = os.path.join(DATA_RAW, "test")
     if not os.path.exists(test_dir):
         print("Extracting...")
