@@ -106,7 +106,7 @@ def generate_multi_digits():
     for i in range(2000):
         num_digits = random.randint(2, 4)
         chosen = random.sample(digit_files, num_digits)
-        imgs = [cv2.imread(f[0]) for f in chosen if cv2.imread(f[0]) is not None]
+        imgs = [img for f in chosen if (img := cv2.imread(f[0])) is not None]
         if len(imgs) != num_digits: continue
         
         actual_number_str = "".join([f[1] for f in chosen])
