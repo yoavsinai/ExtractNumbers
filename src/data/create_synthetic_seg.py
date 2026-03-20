@@ -9,6 +9,9 @@ DATA_PROCESSED = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../
 TARGET_SIZE = (256, 256)
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 NUMBERS = "0123456789"
+LUMINANCE_THRESHOLD = 128  # Backgrounds above this are considered light
+DARK_COLOR_MAX = 80        # Upper bound for dark foreground channel values
+LIGHT_COLOR_MIN = 175      # Lower bound for light foreground channel values
 
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
@@ -48,8 +51,15 @@ def create_synthetic_seg_images(num_samples=500):
             number_length = random.randint(1, 4)
             number_str = "".join([random.choice(NUMBERS) for _ in range(number_length)])
             
-            # Make sure numbers have high contrast or random color
-            color = (random.randint(0,255), random.randint(0,255), random.randint(0,255))
+            # Make sure numbers have high contrast against the background.
+            # Use relative luminance to decide whether to use a dark or light foreground.
+            bg_luminance = 0.299 * bg_color[0] + 0.587 * bg_color[1] + 0.114 * bg_color[2]
+            if bg_luminance > LUMINANCE_THRESHOLD:
+                # Light background: pick a dark foreground color
+                color = (random.randint(0, DARK_COLOR_MAX), random.randint(0, DARK_COLOR_MAX), random.randint(0, DARK_COLOR_MAX))
+            else:
+                # Dark background: pick a light foreground color
+                color = (random.randint(LIGHT_COLOR_MIN, 255), random.randint(LIGHT_COLOR_MIN, 255), random.randint(LIGHT_COLOR_MIN, 255))
             x, y = random.randint(20, TARGET_SIZE[0]-60), random.randint(20, TARGET_SIZE[1]-40)
             
             # Draw on main image
