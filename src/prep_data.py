@@ -24,6 +24,12 @@ def _safe_rmtree(path, base_dir, label):
     if rel == "." or rel.startswith(".."):
         print(f"Skipping {label}: '{path}' is outside the project root – will not remove.")
         return
+    if not os.path.exists(path):
+        print(f"Skipping {label}: '{path}' does not exist – nothing to remove.")
+        return
+    if not os.path.isdir(path):
+        print(f"Skipping {label}: '{path}' is not a directory – will not remove.")
+        return
     print(f"Removing {label} directory: {path}")
     shutil.rmtree(path)
 
