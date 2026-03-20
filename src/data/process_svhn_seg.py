@@ -69,7 +69,9 @@ def download_and_extract():
 def process_svhn_masks():
     print("Processing SVHN Format 1 into masks...")
     mat_file = os.path.join(DATA_RAW, "test", "digitStruct.mat")
-    if not os.path.exists(mat_file): print("digitStruct.mat not found"); return
+    if not os.path.exists(mat_file):
+        msg = f"Required SVHN metadata file not found: {mat_file}"
+        raise FileNotFoundError(msg)
     
     ensure_dir(DATA_PROCESSED)
     
