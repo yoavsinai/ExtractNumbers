@@ -6,6 +6,9 @@ import h5py
 import cv2
 import numpy as np
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 DATA_RAW = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../data/raw/svhn'))
 DATA_PROCESSED = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../data/segmentation/natural'))
 
@@ -53,7 +56,8 @@ def get_bbox(f, idx):
     return list(boxes)
 
 def download_and_extract():
-    url = "https://ufldl.stanford.edu/housenumbers/test.tar.gz"
+    url = "http://ufldl.stanford.edu/housenumbers/test.tar.gz"
+    # url = "https://ufldl.stanford.edu/housenumbers/test.tar.gz"
     tar_path = os.path.join(DATA_RAW, "test.tar.gz")
     if not os.path.exists(tar_path):
         print("Downloading SVHN test Format 1 (~276MB)...")
