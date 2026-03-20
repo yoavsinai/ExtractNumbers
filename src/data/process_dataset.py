@@ -56,8 +56,24 @@ def process_svhn():
 
 def process_handwritten_kaggle():
     print("Processing Kaggle Handwritten Digits...")
-    base_dir = os.path.join(KAGGLE_CACHE, 'olafkrastovski/handwritten-digits-0-9/versions/2')
-    if not os.path.exists(base_dir): return
+    versions_root = os.path.join(KAGGLE_CACHE, 'olafkrastovski', 'handwritten-digits-0-9', 'versions')
+    if not os.path.isdir(versions_root):
+        return
+    # Select the highest numeric version directory available
+    version_dirs = [
+        d for d in os.listdir(versions_root)
+        if os.path.isdir(os.path.join(versions_root, d))
+    ]
+    numeric_versions = []
+    for d in version_dirs:
+        try:
+            numeric_versions.append((int(d), d))
+        except ValueError:
+            continue
+    if not numeric_versions:
+        return
+    latest_version_dir = os.path.join(versions_root, max(numeric_versions)[1])
+    base_dir = latest_version_dir
     for label in range(10):
         cls_dir = os.path.join(base_dir, str(label))
         out_dir = os.path.join(DATA_PROCESSED, "single_digits", str(label))

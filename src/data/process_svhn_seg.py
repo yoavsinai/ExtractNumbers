@@ -35,7 +35,7 @@ def get_bbox(f, idx):
     return list(boxes)
 
 def download_and_extract():
-    url = "http://ufldl.stanford.edu/housenumbers/test.tar.gz"
+    url = "https://ufldl.stanford.edu/housenumbers/test.tar.gz"
     tar_path = os.path.join(DATA_RAW, "test.tar.gz")
     if not os.path.exists(tar_path):
         print("Downloading SVHN test Format 1 (~276MB)...")
