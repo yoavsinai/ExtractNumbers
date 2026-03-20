@@ -74,6 +74,9 @@ def main():
     print("--- PHASE 4: Generating Synthetic Segmentation Arrays ---")
     run_script(os.path.join(src_data_dir, "create_synthetic_seg.py"))
 
+    print("--- PHASE 5: Generating Handwritten Segmentation Arrays ---")
+    run_script(os.path.join(src_data_dir, "create_handwritten_seg.py"))
+
     print("\n=== All Data Datasets Successfully Fetched & Built! ===")
 
 if __name__ == "__main__":
