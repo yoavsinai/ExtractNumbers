@@ -30,5 +30,6 @@ After running the preparation script, your `data/` directory will be structured 
 * **Segmentation** (`data/segmentation/`)
   * `natural/`: 500 house number images (SVHN Format 1) with paired binary masks.
   * `synthetic/`: 500 high-noise synthetic images with paired binary masks.
+  * `handwritten/`: 500 high-contrast handwritten digit samples with randomized color palettes and large distractor letters.
 
 Each segmentation sample is isolated in its own numeric folder (e.g., `data/segmentation/synthetic/0/image.jpg` and `data/segmentation/synthetic/0/mask.png`).
