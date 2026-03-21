@@ -144,7 +144,7 @@ def make_yolo_dataset(
 
         mask = _read_mask_grayscale(mask_path)
         
-        # חיפוש קווי מתאר - מפריד אובייקטים טוב יותר
+        # Find external contours to separate object instances.
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if len(contours) == 0: return False
@@ -154,7 +154,7 @@ def make_yolo_dataset(
             for cnt in contours:
                 x, y, w_box, h_box = cv2.boundingRect(cnt)
                 area = w_box * h_box
-                if area < 10: continue # סינון רעשים קטנים
+                if area < 10: continue  # Filter out tiny noisy boxes.
                 
                 xc = (x + w_box / 2) / w
                 yc = (y + h_box / 2) / h

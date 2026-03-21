@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 
-# הגדרת נתיבים
+# Path configuration
 BASE_DIR = r"C:\Users\user\OneDrive - Bar-Ilan University - Students\Bar Ilan\C\ExtractNumbers\ExtractNumbers"
 CSV_PATH = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_predictions.csv")
 VAL_IMAGES_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_dataset", "images", "val")
@@ -19,15 +19,15 @@ def main():
         print(f"Error: Val directory not found. Please run training first.")
         return
 
-    # 1. טעינת התוצאות
+    # 1. Load prediction results.
     df = pd.read_csv(CSV_PATH)
     
-    # 2. סינון: רק תמונות שקיימות בתיקיית ה-Validation (המבחן)
-    # שמות הקבצים בתיקיית val הם בפורמט: category_id.jpg (למשל natural_10.jpg)
+    # 2. Keep only samples that exist in the validation split.
+    # Validation filenames follow: category_id.jpg (e.g., natural_10.jpg).
     val_filenames = set(os.listdir(VAL_IMAGES_DIR))
     
     def is_test_image(row):
-        # מחלץ את ה-ID (המספר שאחרי הלוכסן)
+        # Extract the sample index (the part after '/').
         idx = row['sample_id'].split('/')[-1]
         target_filename = f"{row['category']}_{idx}.jpg"
         return target_filename in val_filenames
@@ -61,8 +61,7 @@ def main():
             ax = axes[i, j]
             ax.imshow(img)
             
-            # ציור האמת (Green)
-            # ציור האמת (Green)
+            # Draw ground-truth boxes (green).
             mask_img = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             if mask_img is not None:
                 contours, _ = cv2.findContours(mask_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -72,7 +71,7 @@ def main():
                     if area_g > 10:
                         ax.add_patch(plt.Rectangle((x_g, y_g), w_g, h_g, fill=False, edgecolor='lime', linewidth=3))
             
-            # ציור החיזוי של YOLO (Red)
+            # Draw YOLO predicted boxes (red).
             predictions = cat_df[cat_df['image_path'] == img_path]
             for _, pred in predictions.iterrows():
                 if pd.notna(pred['pred_x1']):

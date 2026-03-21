@@ -7,18 +7,18 @@ import cv2
 import matplotlib.pyplot as plt
 import random
 
-# הגדרת נתיבים בסיסיים
+# Base path configuration
 BASE_DIR = r"C:\Users\user\OneDrive - Bar-Ilan University - Students\Bar Ilan\C\ExtractNumbers\ExtractNumbers"
 SRC_DIR = os.path.join(BASE_DIR, "src", "Bounding Box")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
 YOLO_RUN_DIR = os.path.join(OUTPUT_DIR, "yolo_runs", "run1")
 
 def run_quiet_script(script_name, args=[]):
-    """מריץ סקריפט פייתון ומדפיס רק אם יש שגיאה"""
+    """Run a Python script and print output only on error."""
     script_path = os.path.join(SRC_DIR, script_name)
     cmd = [sys.executable, script_path] + args
     
-    # הוספנו encoding='utf-8' כדי לפתור את השגיאה של ה- UnicodeDecodeError
+    # Use UTF-8 decoding to avoid UnicodeDecodeError on subprocess output.
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
     
     if result.returncode != 0:
@@ -27,7 +27,7 @@ def run_quiet_script(script_name, args=[]):
     return result.stdout
 
 def analyze_epochs(csv_path):
-    """מנתח את קובץ ה-results.csv של YOLO כדי לראות שיפור בין אפוקים"""
+    """Analyze YOLO results.csv to track epoch-by-epoch improvement."""
     if not os.path.exists(csv_path): return
     df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip()
@@ -40,7 +40,7 @@ def analyze_epochs(csv_path):
         trend = "▲" if diff > 0.005 else "≈"
         print(f"Epoch {i+1:02d}: {map_vals[i]:.4f} (Change: {diff:+.4f}) {trend}")
     
-    # המלצה
+    # Simple recommendation based on the recent mAP trend.
     last_5_avg_diff = np.mean(np.diff(map_vals[-5:]))
     if last_5_avg_diff < 0.002:
         print("\nRecommendation: The model has plateaued. You can likely use 10-15 epochs.")
@@ -50,7 +50,7 @@ def analyze_epochs(csv_path):
 
 
 def preview_ground_truth():
-    """מייצר תמונת תצוגה מקדימה של הלייבלים כדי לוודא שהם נחתכו נכון לפני האימון"""
+    """Create a preview image to verify labels before training."""
     print("\nGenerating Ground Truth preview...")
     dataset_root = os.path.join(BASE_DIR, "data", "segmentation")
     preview_img_path = os.path.join(OUTPUT_DIR, "preview_labels_before_training.png")
@@ -80,7 +80,7 @@ def preview_ground_truth():
             ax = axes[i, j]
             ax.imshow(img)
             
-            # הלוגיקה המדויקת שלפיה המודל מייצר לייבלים
+            # Use the same contour logic used for label generation.
             if mask is not None:
                 contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 for cnt in contours:
@@ -102,14 +102,13 @@ def main():
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
-    # -- תצוגה מקדימה ובדיקת שפיות --
+    # Preview step for a quick sanity check.
     preview_path = preview_ground_truth()
     print(f"\n=> SANITY CHECK: Please open the image at:\n   {preview_path}")
     print("Check if the green bounding boxes surround individual digits correctly.")
     user_input = input("Press ENTER to continue with YOLO training, or type 'q' and Enter to abort: ")
     
-    # ---------------------------------
-    # 1. הרצת האימון והחיזוי של YOLO
+    # 1. Run YOLO training and inference.
     print("Step 1/3: Running YOLO Training & Inference...")
     run_quiet_script("yolo_detector.py", [
         "--dataset-root", os.path.join(BASE_DIR, "data", "segmentation"),
@@ -118,7 +117,7 @@ def main():
         "--overwrite-conversion"
     ])
 
-    # 2. הצגת סטטיסטיקות סופיות מהטרמינל (מתוך קובץ ה-results של YOLO)
+    # 2. Print final YOLO metrics from results.csv.
     results_csv = os.path.join(YOLO_RUN_DIR, "results.csv")
     if os.path.exists(results_csv):
         rdf = pd.read_csv(results_csv)
@@ -131,7 +130,7 @@ def main():
         
         analyze_epochs(results_csv)
 
-    # 3. ניתוח לפי קטגוריות (מתוך קובץ הניבויים)
+    # 3. Analyze predictions by category.
     pred_csv = os.path.join(OUTPUT_DIR, "yolo_predictions.csv")
     if os.path.exists(pred_csv):
         pdf = pd.read_csv(pred_csv)
@@ -140,7 +139,7 @@ def main():
         for cat, row in stats.iterrows():
             print(f"- {cat:12}: {row['mean']:.2%} (Total samples: {int(row['count'])})")
 
-    # 4. הרצת ויזואליזציה
+    # 4. Generate visualization output.
     print("\nStep 3/3: Generating Comparison Images...")
     run_quiet_script("visualize_yolo_results.py")
     print(f"Process Complete. Check: {OUTPUT_DIR}\yolo_comparison_summary.png")
