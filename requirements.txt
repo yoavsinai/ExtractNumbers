@@ -29,3 +29,4 @@ ipykernel
 kagglesdk
 pycryptodomex
 mysql-connector-python
+ultralytics
