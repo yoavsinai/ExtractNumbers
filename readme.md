@@ -38,7 +38,8 @@ Each segmentation sample is isolated in its own numeric folder (e.g., `data/segm
 
 To run the bounding-box detection and evaluation pipeline, execute the following command from the project root:
 
-`python src/run_detection.py`
+```bash
+python src/run_detection.py```
 
 ### Evaluation Results
 
@@ -57,5 +58,4 @@ The current detection model achieves the following overall performance metrics:
 
 Below is a demonstration of the test results, featuring 2 sample images from each of the three categories (Handwritten, Natural, and Synthetic):
 
-![Detection Results]
-(assets/yolo_comparison_summary.png)
+![Detection Results](assets/yolo_comparison_summary.png)
