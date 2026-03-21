@@ -85,10 +85,6 @@ def visualize_results(result, output_dir, file_index):
         rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, 
                                  linewidth=2, edgecolor='red', facecolor='none')
         ax.add_patch(rect)
-        if i < len(digits):
-            pred, conf = digits[i]
-            label = f"{pred} ({conf:.2f})"
-            ax.text(x1, y2 + 15, label, color='white', fontsize=10, bbox=dict(facecolor='red', alpha=0.5))
 
     ax.set_title("2. YOLO Detection")
     ax.text(0.5, -0.05, f"Digits passed to next layer: {num_bboxes}", 
@@ -110,6 +106,10 @@ def visualize_results(result, output_dir, file_index):
         if padded_digits:
             concatenated_digits = np.concatenate(padded_digits, axis=1)
             ax.imshow(concatenated_digits, cmap='gray')
+            pred_str = result.get('pred_str', '')
+            ax.text(0.5, -0.05, f"Predicted Number: {pred_str}", 
+                    size=12, ha="center", transform=ax.transAxes,
+                    bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', pad=2))
     else:
         ax.text(0.5, 0.5, "No digits found", ha='center', va='center')
     ax.set_title("3. Processed Digits")
