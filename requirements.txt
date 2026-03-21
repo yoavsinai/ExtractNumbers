@@ -10,6 +10,7 @@ pandas
 matplotlib
 scikit-learn
 h5py
+scipy
 
 # Image Processing
 opencv-python

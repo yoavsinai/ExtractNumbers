@@ -51,21 +51,28 @@ def recognize_digits(digit_model, image_path, bboxes):
     if img is None:
         return []
     
-    digits = []
+    all_digits = []
     device = get_device()
+    
+    # Sort yolo boxes left to right
+    bboxes = sorted(bboxes, key=lambda b: b[0])
+
     for bbox in bboxes:
-        x1, y1, x2, y2 = bbox
+        x1, y1, x2, y2 = map(int, bbox)
+        
         try:
+            # Preprocess and recognize the digit
             inputs = preprocess_crop(img, (x1, y1, x2, y2)).unsqueeze(0).to(device)
             with torch.no_grad():
                 out = digit_model(inputs)
                 probs = torch.softmax(out, dim=-1)
                 pred = int(probs.argmax(dim=-1).item())
                 conf = float(probs.max().item())
-            digits.append((pred, conf))
+            all_digits.append((pred, conf))
         except Exception as e:
-            print(f"Skipping bbox {bbox}: {e}")
-    return digits
+            print(f"Skipping digit in bbox {bbox}: {e}")
+
+    return all_digits
 
 def main():
     if len(sys.argv) < 3:
