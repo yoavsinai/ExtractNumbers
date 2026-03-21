@@ -39,7 +39,8 @@ Each segmentation sample is isolated in its own numeric folder (e.g., `data/segm
 To run the bounding-box detection and evaluation pipeline, execute the following command from the project root:
 
 ```bash
-python src/run_detection.py```
+python src/run_detection.py
+```
 
 ### Evaluation Results
 
