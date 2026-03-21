@@ -8,8 +8,9 @@ import matplotlib.pyplot as plt
 import random
 
 # Base path configuration
-BASE_DIR = r"C:\Users\user\OneDrive - Bar-Ilan University - Students\Bar Ilan\C\ExtractNumbers\ExtractNumbers"
-SRC_DIR = os.path.join(BASE_DIR, "src", "Bounding Box")
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SRC_DIR = os.path.join(BASE_DIR, "src", "BoundingBox")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
 YOLO_RUN_DIR = os.path.join(OUTPUT_DIR, "yolo_runs", "run1")
 
@@ -105,8 +106,7 @@ def main():
     # Preview step for a quick sanity check.
     preview_path = preview_ground_truth()
     print(f"\n=> SANITY CHECK: Please open the image at:\n   {preview_path}")
-    print("Check if the green bounding boxes surround individual digits correctly.")
-    user_input = input("Press ENTER to continue with YOLO training, or type 'q' and Enter to abort: ")
+    
     
     # 1. Run YOLO training and inference.
     print("Step 1/3: Running YOLO Training & Inference...")

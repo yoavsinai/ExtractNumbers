@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 # Path configuration
-BASE_DIR = r"C:\Users\user\OneDrive - Bar-Ilan University - Students\Bar Ilan\C\ExtractNumbers\ExtractNumbers"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CSV_PATH = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_predictions.csv")
 VAL_IMAGES_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_dataset", "images", "val")
 OUTPUT_IMAGE = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_comparison_summary.png")
