@@ -58,5 +58,4 @@ The current detection model achieves the following overall performance metrics:
 ### Detection Examples
 
 Below is a demonstration of the test results, featuring 2 sample images from each of the three categories (Handwritten, Natural, and Synthetic):
-
-![Detection Results](assets/yolo_comparison_summary.png)
+<img src="assets/yolo_comparison_summary.png" alt="Detection Results" width="600">
