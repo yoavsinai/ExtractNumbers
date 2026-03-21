@@ -108,9 +108,6 @@ def main():
     print("Check if the green bounding boxes surround individual digits correctly.")
     user_input = input("Press ENTER to continue with YOLO training, or type 'q' and Enter to abort: ")
     
-    if user_input.lower() == 'q':
-        print("Training aborted by user.")
-        return
     # ---------------------------------
     # 1. הרצת האימון והחיזוי של YOLO
     print("Step 1/3: Running YOLO Training & Inference...")
