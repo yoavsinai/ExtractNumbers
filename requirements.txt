@@ -21,6 +21,8 @@ torch
 torchvision
 datasets
 kagglehub
+paddlepaddle
+paddleocr
 
 # Other
 reportlab
