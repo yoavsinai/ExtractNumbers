@@ -15,10 +15,6 @@ def run_script(script_path, args=[]):
         print(f"Error running {script_path}:\n{result.stderr}")
         sys.exit(1)
     return result.stdout
-    if result.returncode != 0:
-        print(f"Error running {script_name}:\n{result.stderr}")
-        sys.exit(1)
-    return result.stdout
 
 def extract_labeled_numbers():
     """Extract labeled numbers from digit predictions CSV."""
