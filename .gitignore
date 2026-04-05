@@ -1,6 +1,6 @@
 .venv
 __pycache__/
 *.pyc
-
+outputs
 # Models
 yolov8n.pt
