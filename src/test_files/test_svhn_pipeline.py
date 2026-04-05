@@ -12,7 +12,7 @@ import torchvision.datasets as datasets
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from full_pipelines.single_photo_full_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
+from full_pipelines.single_photo_full_pipeline_not_up_to_date import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
 
 def get_true_labels_from_mat(mat_file_path):
     """
