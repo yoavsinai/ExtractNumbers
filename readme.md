@@ -59,3 +59,8 @@ The current detection model achieves the following overall performance metrics:
 
 Below is a demonstration of the test results, featuring 2 sample images from each of the three categories (Handwritten, Natural, and Synthetic):
 <img src="assets/yolo_comparison_summary.png" alt="Detection Results" width="600">
+
+## Enhanced Pipeline Examples
+
+Below is a demonstration of the enhanced pipeline workflow, showing the complete digit detection and preprocessing enhancement process with three-panel visualizations:
+<img src="assets/enhanced_example.png" alt="Enhanced Pipeline Results" width="600">

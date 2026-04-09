@@ -1,19 +1,18 @@
 import os
-import tempfile
-import torch
-import torchvision.datasets as datasets
 import cv2
 import numpy as np
-
-import h5py
-
-# Import functions from the single photo pipeline
 import sys
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import tempfile
+import h5py
+import torch
+import torchvision.datasets as datasets
 
-max_samples = 1000
+# Add src to path
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'full_pipelines'))
-from single_photo_full_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
+from full_pipelines.single_photo_full_pipeline_not_up_to_date import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
 
 def get_true_labels_from_mat(mat_file_path):
     """
@@ -23,29 +22,18 @@ def get_true_labels_from_mat(mat_file_path):
         f = h5py.File(mat_file_path, 'r')
     except (FileNotFoundError, OSError):
         print(f"Error: Ground truth file not found or is not a valid HDF5 file at {mat_file_path}")
-        print("Please ensure the SVHN dataset is downloaded and in the 'data/raw/svhn' directory.")
         return None
 
     all_labels = []
-    
-    # This dataset contains references to the data for each image
     bbox_dataset = f['digitStruct/bbox']
-
     for i in range(bbox_dataset.shape[0]):
         bbox_ref = bbox_dataset[i, 0]
         bbox_group = f[bbox_ref]
-        
         label_data = bbox_group['label']
-        
-        # The data structure differs for single vs. multi-digit numbers.
         if label_data.shape[0] > 1:
-            # For multiple digits, 'label_data' is an array of references.
             labels = [int(f[ref[0]][()][0,0]) for ref in label_data]
         else:
-            # For a single digit, 'label_data' just contains the value.
             labels = [int(label_data[0,0])]
-
-        # In the SVHN dataset, the label '10' represents the digit '0'.
         label_str = "".join(str(l % 10) for l in labels)
         all_labels.append(label_str)
         
@@ -61,12 +49,8 @@ def visualize_results(result, output_dir, file_index):
     2. Original image with raw YOLO bounding boxes in red.
     3. Cropped digits sent to the recognizer.
     """
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as patches
-
     img = result['image']
     digit_images = result.get('digit_images', [])
-    digits = result.get('digits', [])
     
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
@@ -138,12 +122,17 @@ def main():
         print(f"Digit classifier weights not found: {digit_weights}")
         return
 
-    # --- Filter dataset for multi-digit images ---
-    print("Loading ground truth labels to find multi-digit images...")
+    # Load models
+    print("Loading models...")
+    yolo_model = load_yolo_model(yolo_weights)
+    digit_model = load_digit_model(digit_weights)
+
+    # --- Filter dataset for multi-digit images using SVHN ---
+    print("Loading SVHN ground truth labels...")
     mat_file_path = os.path.join(base_dir, 'data', 'raw', 'svhn', 'test', 'digitStruct.mat')
     all_true_labels = get_true_labels_from_mat(mat_file_path)
     if all_true_labels is None:
-        return # Error handled in helper function
+        return
 
     multi_digit_samples = [
         (i, label) for i, label in enumerate(all_true_labels) if len(label) > 1
@@ -153,25 +142,20 @@ def main():
         print("No multi-digit images found in the dataset.")
         return
 
-    # Load models
-    print("Loading models...")
-    yolo_model = load_yolo_model(yolo_weights)
-    digit_model = load_digit_model(digit_weights)
-
     # Load SVHN test dataset
     print("Loading SVHN test dataset...")
     dataset = datasets.SVHN(root=os.path.join(base_dir, 'data', 'raw'), split='test', download=False)
     
+    max_samples = 1000
     total_samples_to_test = min(max_samples, len(multi_digit_samples))
     test_samples = multi_digit_samples[:total_samples_to_test]
     
-    print(f"Found {len(multi_digit_samples)} multi-digit images. Testing on the first {len(test_samples)}...")
-
-    correct = 0
+    print(f"Testing on {len(test_samples)} multi-digit SVHN samples...")
     output_dir = os.path.join(base_dir, "outputs", "fullpipelines_predictions")
 
+    correct = 0
     for i, (image_index, true_str) in enumerate(test_samples):
-        img, _ = dataset[image_index] # We use our own true_str, so ignore the dataset's label
+        img, _ = dataset[image_index]
 
         with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as f:
             temp_path = f.name
@@ -182,11 +166,9 @@ def main():
             bboxes, _ = run_yolo_on_image(yolo_model, temp_path)
             
             recognized_str = ""
-            digits = []
-
-            # --- Visualization data gathering ---
-            img_for_vis = cv2.imread(temp_path)
             digit_images_for_vis = []
+            digits = []
+            image_for_vis = cv2.imread(temp_path)
 
             if len(bboxes) > 0:
                 bboxes = sorted(bboxes, key=lambda b: b[0])
@@ -195,36 +177,38 @@ def main():
 
                 for bbox in bboxes:
                     x1, y1, x2, y2 = map(int, bbox)
-                    digit_crop = img_for_vis[y1:y2, x1:x2]
+                    digit_crop = image_for_vis[y1:y2, x1:x2]
                     if digit_crop.size > 0:
                         resized_digit = cv2.resize(digit_crop, (28, 28))
                         digit_images_for_vis.append(resized_digit)
 
             if recognized_str == true_str:
                 correct += 1
-                print(f"Correct: Predicted '{recognized_str}', True '{true_str}' (Image index {image_index})")
             else:
                 print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (Image index {image_index})")
             
-            img_np = np.array(img)
             result = {
-                'image': img_np,
+                'image': cv2.cvtColor(image_for_vis, cv2.COLOR_BGR2RGB),
                 'true_str': true_str,
                 'pred_str': recognized_str,
                 'bboxes': bboxes,
-                'digits': digits,
-                'digit_images': digit_images_for_vis
+                'digit_images': digit_images_for_vis,
+                'digits': digits
             }
             visualize_results(result, output_dir, image_index)
 
+        except Exception as e:
+            import traceback
+            print(f"Error processing image {image_index}:")
+            traceback.print_exc()
         finally:
             os.unlink(temp_path)
 
-        if (i + 1) % 100 == 0:
-            print(f"Processed and visualized {i + 1}/{len(test_samples)} samples...")
+        if (i + 1) % 50 == 0:
+            print(f"Processed {i + 1}/{len(test_samples)} samples...")
 
-    accuracy = correct / len(test_samples)
-    print(f"\nAccuracy on multi-digit images: {accuracy:.4f} ({correct}/{len(test_samples)})")
+    accuracy = correct / len(test_samples) if len(test_samples) > 0 else 0
+    print(f"Accuracy: {accuracy:.4f} ({correct}/{len(test_samples)})")
     print(f"Visualizations saved to: {output_dir}")
 
 if __name__ == "__main__":
