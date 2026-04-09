@@ -8,7 +8,7 @@ import matplotlib.patches as patches
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from full_pipelines.single_photo_full_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
+from full_pipelines.single_photo_full_pipeline_not_up_to_date import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
 from utils.metrics import print_metrics_report
 
 def get_ground_truth_from_mask(mask_path):
