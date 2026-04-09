@@ -9,6 +9,7 @@ import matplotlib.patches as patches
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from full_pipelines.single_photo_full_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
+from utils.metrics import print_metrics_report
 
 def get_ground_truth_from_mask(mask_path):
     """
@@ -123,7 +124,8 @@ def main():
     total_samples = len(mask_files)
     print(f"Testing on {total_samples} samples from {data_dir}...")
 
-    correct = 0
+    all_preds = []
+    all_true = []
     for i, mask_path in enumerate(mask_files):
         true_str = get_ground_truth_from_mask(mask_path)
         image_path = os.path.join(os.path.dirname(mask_path), 'image.jpg')
@@ -156,9 +158,10 @@ def main():
                         resized_digit = cv2.resize(digit_crop, (28, 28))
                         digit_images_for_vis.append(resized_digit)
 
-            if recognized_str == true_str:
-                correct += 1
-            else:
+            all_preds.append(recognized_str)
+            all_true.append(true_str)
+
+            if recognized_str != true_str:
                 print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (image {i}: {image_path})")
 
             result = {
@@ -177,8 +180,7 @@ def main():
         if (i + 1) % 50 == 0:
             print(f"Processed {i + 1}/{total_samples} samples...")
 
-    accuracy = correct / total_samples if total_samples > 0 else 0
-    print(f"\nAccuracy: {accuracy:.4f} ({correct}/{total_samples})")
+    print_metrics_report(all_true, all_preds, title="Full Pipeline Evaluation")
     print(f"Visualizations saved to: {output_dir}")
 
 

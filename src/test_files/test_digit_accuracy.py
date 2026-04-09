@@ -9,6 +9,10 @@ import sys
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'DigitRecognizer'))
 from digit_recognizer import build_digit_model, get_device
 
+# Import metrics
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.metrics import print_metrics_report
+
 def main():
     # Paths
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -42,19 +46,19 @@ def main():
     dataloader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=0)
 
     # Test
-    correct = 0
-    total = 0
+    all_preds = []
+    all_labels = []
     with torch.no_grad():
         for images, labels in dataloader:
             images = images.to(device)
             labels = labels.to(device)
             outputs = model(images)
             preds = outputs.argmax(dim=1)
-            correct += (preds == labels).sum().item()
-            total += labels.size(0)
+            
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(labels.cpu().numpy())
 
-    accuracy = correct / total if total > 0 else 0
-    print(f"Digit Recognition Accuracy: {accuracy:.4f} ({correct}/{total})")
+    print_metrics_report(all_labels, all_preds, title="Digit Recognition Evaluation")
 
 if __name__ == "__main__":
     main()

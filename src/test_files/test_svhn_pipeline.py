@@ -15,6 +15,10 @@ max_samples = 1000
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'full_pipelines'))
 from single_photo_full_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
 
+# Import metrics
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.metrics import print_metrics_report
+
 def get_true_labels_from_mat(mat_file_path):
     """
     Parses the digitStruct.mat file (v7.3) using h5py to get the ground truth sequence of digits.
@@ -167,7 +171,8 @@ def main():
     
     print(f"Found {len(multi_digit_samples)} multi-digit images. Testing on the first {len(test_samples)}...")
 
-    correct = 0
+    all_preds = []
+    all_true = []
     output_dir = os.path.join(base_dir, "outputs", "fullpipelines_predictions")
 
     for i, (image_index, true_str) in enumerate(test_samples):
@@ -200,8 +205,10 @@ def main():
                         resized_digit = cv2.resize(digit_crop, (28, 28))
                         digit_images_for_vis.append(resized_digit)
 
+            all_preds.append(recognized_str)
+            all_true.append(true_str)
+
             if recognized_str == true_str:
-                correct += 1
                 print(f"Correct: Predicted '{recognized_str}', True '{true_str}' (Image index {image_index})")
             else:
                 print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (Image index {image_index})")
@@ -223,8 +230,7 @@ def main():
         if (i + 1) % 100 == 0:
             print(f"Processed and visualized {i + 1}/{len(test_samples)} samples...")
 
-    accuracy = correct / len(test_samples)
-    print(f"\nAccuracy on multi-digit images: {accuracy:.4f} ({correct}/{len(test_samples)})")
+    print_metrics_report(all_true, all_preds, title="SVHN Multi-Digit Pipeline Evaluation")
     print(f"Visualizations saved to: {output_dir}")
 
 if __name__ == "__main__":
