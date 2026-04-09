@@ -3,19 +3,20 @@ import torch
 import torchvision.transforms as T
 import torchvision.datasets as datasets
 from torch.utils.data import DataLoader
-
-# Import the digit model loading function
 import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'DigitRecognizer'))
-from digit_recognizer import build_digit_model, get_device
 
-# Import metrics
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add src to path
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_dir = os.path.join(root_dir, 'src')
+sys.path.append(src_dir)
+sys.path.append(os.path.join(src_dir, 'digit_recognizer'))
+
+from digit_recognizer import build_digit_model, get_device
 from utils.metrics import print_metrics_report
 
 def main():
     # Paths
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_dir = root_dir
     digit_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "digit_classifier.pth")
     data_dir = os.path.join(base_dir, "data", "classification", "single_digits")
 

@@ -6,30 +6,26 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
 # Add src to path
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_dir = os.path.join(root_dir, 'src')
+sys.path.append(src_dir)
 
-from full_pipelines.single_photo_full_pipeline_not_up_to_date import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
+from full_pipelines.single_photo_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
 from utils.metrics import print_metrics_report
 
 def get_ground_truth_from_mask(mask_path):
     """
-    This is a placeholder. We need to figure out how to get the ground truth number.
-    Let's assume for now that the folder name contains the number.
+    Extract ground truth number from the folder name containing the mask.
     e.g. data/segmentation/natural/123/mask.png -> '123'
     """
     try:
-        # The number is the name of the parent folder of the mask
         return os.path.basename(os.path.dirname(mask_path))
     except Exception:
         return None
 
 def visualize_results(result, output_dir, file_index):
     """
-    Visualize the prediction for a single image in three stages.
-    Saves an image showing:
-    1. The original, untouched input image.
-    2. Original image with raw YOLO bounding boxes in red.
-    3. Cropped digits sent to the recognizer.
+    Visualize the prediction result in three panels.
     """
     img = result['image']
     digit_images = result.get('digit_images', [])
@@ -37,13 +33,13 @@ def visualize_results(result, output_dir, file_index):
     
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
-    # --- Panel 1: Original Untouched Image ---
+    # Panel 1: Original Image
     ax = axes[0]
     ax.imshow(img, interpolation='nearest')
     ax.set_title("1. Original Image")
     ax.axis('off')
     
-    # --- Panel 2: Raw YOLO Bounding Box ---
+    # Panel 2: YOLO Detection
     ax = axes[1]
     ax.imshow(img, interpolation='nearest')
     num_bboxes = len(result.get('bboxes', []))
@@ -59,10 +55,9 @@ def visualize_results(result, output_dir, file_index):
             bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', pad=2))
     ax.axis('off')
 
-    # --- Panel 3: Cropped Digits for Recognition ---
+    # Panel 3: Processed Digits
     ax = axes[2]
     if digit_images:
-        # Pad images to the same height before concatenating
         max_h = max(d.shape[0] for d in digit_images) if digit_images else 28
         padded_digits = []
         for d_img in digit_images:
@@ -82,19 +77,17 @@ def visualize_results(result, output_dir, file_index):
     ax.set_title("3. Processed Digits")
     ax.axis('off')
     
-    # Add an overall title
     fig.suptitle(f"Image {file_index} | True: '{result['true_str']}' | Pred: '{result['pred_str']}'", fontsize=16)
     
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, f"prediction_{file_index}.png")
     plt.savefig(output_path, dpi=150)
     plt.close()
 
-
 def main():
     # Paths to models
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_dir = root_dir
     yolo_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "yolo_run", "weights", "best.pt")
     digit_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "digit_classifier.pth")
 
@@ -139,7 +132,6 @@ def main():
             continue
 
         try:
-            # Run detection
             bboxes, _ = run_yolo_on_image(yolo_model, image_path)
             
             recognized_str = ""
@@ -162,7 +154,7 @@ def main():
             all_true.append(true_str)
 
             if recognized_str != true_str:
-                print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (image {i}: {image_path})")
+                print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (image {i})")
 
             result = {
                 'image': cv2.cvtColor(image_for_vis, cv2.COLOR_BGR2RGB),
@@ -182,7 +174,6 @@ def main():
 
     print_metrics_report(all_true, all_preds, title="Full Pipeline Evaluation")
     print(f"Visualizations saved to: {output_dir}")
-
 
 if __name__ == "__main__":
     main()

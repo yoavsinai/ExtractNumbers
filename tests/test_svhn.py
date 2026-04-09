@@ -10,22 +10,21 @@ import torch
 import torchvision.datasets as datasets
 
 # Add src to path
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+src_dir = os.path.join(root_dir, 'src')
+sys.path.append(src_dir)
 
-from full_pipelines.single_photo_full_pipeline_not_up_to_date import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
-
-# Import metrics
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from full_pipelines.single_photo_pipeline import load_yolo_model, load_digit_model, run_yolo_on_image, recognize_digits
 from utils.metrics import print_metrics_report
 
 def get_true_labels_from_mat(mat_file_path):
     """
-    Parses the digitStruct.mat file (v7.3) using h5py to get the ground truth sequence of digits.
+    Parses the digitStruct.mat file (v7.3) using h5py.
     """
     try:
         f = h5py.File(mat_file_path, 'r')
     except (FileNotFoundError, OSError):
-        print(f"Error: Ground truth file not found or is not a valid HDF5 file at {mat_file_path}")
+        print(f"Error: Ground truth file not found at {mat_file_path}")
         return None
 
     all_labels = []
@@ -44,27 +43,22 @@ def get_true_labels_from_mat(mat_file_path):
     f.close()
     return all_labels
 
-
 def visualize_results(result, output_dir, file_index):
     """
-    Visualize the prediction for a single image in three stages.
-    Saves an image showing:
-    1. The original, untouched input image.
-    2. Original image with raw YOLO bounding boxes in red.
-    3. Cropped digits sent to the recognizer.
+    Visualize results in three panels.
     """
     img = result['image']
     digit_images = result.get('digit_images', [])
     
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
-    # --- Panel 1: Original Untouched Image ---
+    # Panel 1: Original Image
     ax = axes[0]
     ax.imshow(img, interpolation='nearest')
     ax.set_title("1. Original Image")
     ax.axis('off')
     
-    # --- Panel 2: Raw YOLO Bounding Box ---
+    # Panel 2: YOLO Detection
     ax = axes[1]
     ax.imshow(img, interpolation='nearest')
     num_bboxes = len(result.get('bboxes', []))
@@ -75,15 +69,14 @@ def visualize_results(result, output_dir, file_index):
         ax.add_patch(rect)
 
     ax.set_title("2. YOLO Detection")
-    ax.text(0.5, -0.05, f"Digits passed to next layer: {num_bboxes}", 
+    ax.text(0.5, -0.05, f"Digits passed: {num_bboxes}", 
             size=12, ha="center", transform=ax.transAxes,
             bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', pad=2))
     ax.axis('off')
 
-    # --- Panel 3: Cropped Digits for Recognition ---
+    # Panel 3: Processed Digits
     ax = axes[2]
     if digit_images:
-        # Pad images to the same height before concatenating
         max_h = max(d.shape[0] for d in digit_images) if digit_images else 28
         padded_digits = []
         for d_img in digit_images:
@@ -95,7 +88,7 @@ def visualize_results(result, output_dir, file_index):
             concatenated_digits = np.concatenate(padded_digits, axis=1)
             ax.imshow(concatenated_digits, cmap='gray')
             pred_str = result.get('pred_str', '')
-            ax.text(0.5, -0.05, f"Predicted Number: {pred_str}", 
+            ax.text(0.5, -0.05, f"Predicted: {pred_str}", 
                     size=12, ha="center", transform=ax.transAxes,
                     bbox=dict(facecolor='white', alpha=0.8, edgecolor='none', pad=2))
     else:
@@ -103,18 +96,17 @@ def visualize_results(result, output_dir, file_index):
     ax.set_title("3. Processed Digits")
     ax.axis('off')
     
-    # Add an overall title
-    fig.suptitle(f"Image {file_index} | True: '{result['true_str']}' | Pred: '{result['pred_str']}'", fontsize=16)
+    fig.suptitle(f"SVHN {file_index} | True: '{result['true_str']}' | Pred: '{result['pred_str']}'", fontsize=16)
     
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"prediction_{file_index}.png")
+    output_path = os.path.join(output_dir, f"svhn_prediction_{file_index}.png")
     plt.savefig(output_path, dpi=150)
     plt.close()
 
 def main():
     # Paths to models
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    base_dir = root_dir
     yolo_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "yolo_run", "weights", "best.pt")
     digit_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "digit_classifier.pth")
 
@@ -131,7 +123,7 @@ def main():
     yolo_model = load_yolo_model(yolo_weights)
     digit_model = load_digit_model(digit_weights)
 
-    # --- Filter dataset for multi-digit images using SVHN ---
+    # Filter dataset for multi-digit images using SVHN
     print("Loading SVHN ground truth labels...")
     mat_file_path = os.path.join(base_dir, 'data', 'raw', 'svhn', 'test', 'digitStruct.mat')
     all_true_labels = get_true_labels_from_mat(mat_file_path)
@@ -154,13 +146,12 @@ def main():
     total_samples_to_test = min(max_samples, len(multi_digit_samples))
     test_samples = multi_digit_samples[:total_samples_to_test]
     
-    print(f"Found {len(multi_digit_samples)} multi-digit images. Testing on the first {len(test_samples)}...")
+    print(f"Found {len(multi_digit_samples)} multi-digit images. Testing {len(test_samples)}...")
 
     all_preds = []
     all_true = []
     output_dir = os.path.join(base_dir, "outputs", "fullpipelines_predictions")
 
-    correct = 0
     for i, (image_index, true_str) in enumerate(test_samples):
         img, _ = dataset[image_index]
 
@@ -169,7 +160,6 @@ def main():
             img.save(temp_path)
 
         try:
-            # Run detection
             bboxes, _ = run_yolo_on_image(yolo_model, temp_path)
             
             recognized_str = ""
@@ -193,9 +183,9 @@ def main():
             all_true.append(true_str)
 
             if recognized_str == true_str:
-                print(f"Correct: Predicted '{recognized_str}', True '{true_str}' (Image index {image_index})")
+                print(f"Correct: Predicted '{recognized_str}' (Image {image_index})")
             else:
-                print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (Image index {image_index})")
+                print(f"Mismatch: Predicted '{recognized_str}', True '{true_str}' (Image {image_index})")
             
             result = {
                 'image': cv2.cvtColor(image_for_vis, cv2.COLOR_BGR2RGB),
@@ -208,17 +198,15 @@ def main():
             visualize_results(result, output_dir, image_index)
 
         except Exception as e:
-            import traceback
-            print(f"Error processing image {image_index}:")
-            traceback.print_exc()
+            print(f"Error processing {image_index}: {e}")
         finally:
-            os.unlink(temp_path)
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
 
         if (i + 1) % 50 == 0:
             print(f"Processed {i + 1}/{len(test_samples)} samples...")
 
-    print_metrics_report(all_true, all_preds, title="SVHN Multi-Digit Pipeline Evaluation")
-    print(f"Visualizations saved to: {output_dir}")
+    print_metrics_report(all_true, all_preds, title="SVHN Multi-Digit Evaluation")
 
 if __name__ == "__main__":
     main()

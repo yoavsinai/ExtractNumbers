@@ -10,7 +10,7 @@ import random
 # Base path configuration
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SRC_DIR = os.path.join(BASE_DIR, "src", "BoundingBox")
+SRC_DIR = os.path.join(BASE_DIR, "src", "bounding_box")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
 YOLO_RUN_DIR = os.path.join(OUTPUT_DIR, "yolo_runs", "run1")
 

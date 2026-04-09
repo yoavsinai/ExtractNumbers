@@ -39,7 +39,7 @@ Each segmentation sample is isolated in its own numeric folder (e.g., `data/segm
 To run the bounding-box detection and evaluation pipeline, execute the following command from the project root:
 
 ```bash
-python "src/BoundingBox/run_yolo_flow.py"
+python "src/bounding_box/run_yolo_flow.py"
 ```
 
 ### Evaluation Results
