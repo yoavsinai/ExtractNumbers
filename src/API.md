@@ -28,7 +28,7 @@ python src/prep_data.py --clean
 
 ---
 
-## BoundingBox/ - YOLO Object Detection
+## bounding_box/ - YOLO Object Detection
 
 ### `yolo_detector.py`
 **Purpose:** Core YOLO digit detection utilities  
@@ -42,7 +42,7 @@ python src/prep_data.py --clean
 
 **Usage Example:**
 ```python
-from BoundingBox.yolo_detector import bbox_from_mask, xyxy_to_yolo_bbox
+from bounding_box.yolo_detector import bbox_from_mask, xyxy_to_yolo_bbox
 import cv2
 import numpy as np
 
@@ -65,7 +65,7 @@ yolo_bbox = xyxy_to_yolo_bbox(bbox, img_width, img_height)  # Returns normalized
 **Usage:**
 ```bash
 # Run the full YOLO workflow
-python src/BoundingBox/run_yolo_flow.py
+python src/bounding_box/run_yolo_flow.py
 ```
 
 **What it does:**
@@ -91,7 +91,7 @@ python src/BoundingBox/run_yolo_flow.py
 
 **Usage:**
 ```bash
-python src/BoundingBox/visualize_yolo_results.py
+python src/bounding_box/visualize_yolo_results.py
 ```
 
 **Outputs:**
@@ -99,7 +99,7 @@ python src/BoundingBox/visualize_yolo_results.py
 
 ---
 
-## DigitRecognizer/ - Digit Classification
+## digit_recognizer/ - Digit Classification
 
 ### `digit_recognizer.py`
 **Purpose:** Digit classification model (ResNet18-based)  
@@ -116,7 +116,7 @@ python src/BoundingBox/visualize_yolo_results.py
 
 **Usage Example:**
 ```python
-from DigitRecognizer.digit_recognizer import load_classifier, get_device
+from digit_recognizer.digit_recognizer import load_classifier, get_device
 import torch
 
 # Load or train classifier
@@ -146,7 +146,7 @@ with torch.no_grad():
 
 ---
 
-## ImagePreprocessing/ - Digit Image Enhancement
+## image_preprocessing/ - Digit Image Enhancement
 
 ### `digit_preprocessor.py`
 **Purpose:** Preprocessing module for digit image enhancement  
@@ -186,7 +186,7 @@ with torch.no_grad():
 
 **Usage Example:**
 ```python
-from ImagePreprocessing.digit_preprocessor import preprocess_digit, batch_preprocess_digits
+from image_preprocessing.digit_preprocessor import preprocess_digit, batch_preprocess_digits
 import cv2
 
 # Single image preprocessing
@@ -206,7 +206,7 @@ processed_batch = batch_preprocess_digits(digit_crops, target_size=128)
 # Returns: shape (N, 128, 128)
 
 # Run as script with visualization
-# python src/ImagePreprocessing/digit_preprocessor.py path/to/digit.png
+# python src/image_preprocessing/digit_preprocessor.py path/to/digit.png
 ```
 
 **Parameters:**
@@ -222,7 +222,7 @@ processed_batch = batch_preprocess_digits(digit_crops, target_size=128)
 
 ---
 
-## test_files/ - Testing & Validation
+## tests/ - Testing & Validation
 
 ### `test_preprocessing.py`
 **Purpose:** Validate digit preprocessing module  
@@ -237,7 +237,7 @@ processed_batch = batch_preprocess_digits(digit_crops, target_size=128)
 **Usage:**
 ```bash
 # Auto-detect and test sample images from data folder
-python src/test_files/test_preprocessing.py
+python tests/test_preprocessing.py
 
 # Test specific images
 python src/test_files/test_preprocessing.py path/to/digit1.png path/to/digit2.png
@@ -275,7 +275,7 @@ if success:
 
 ---
 
-### `test_enhanced_pipeline.py`
+### `test_visual_enhancement.py`
 **Purpose:** Test YOLO detection + preprocessing enhancement sub-pipeline  
 **Description:** Demonstrates the complete digit detection and enhancement workflow. Uses YOLO to find digit bounding boxes, then applies preprocessing enhancement to each cropped digit. Creates visual comparison showing original detections, original crops, and enhanced crops.
 
@@ -293,7 +293,7 @@ if success:
 **Usage:**
 ```bash
 # Auto-test on sample images
-python src/test_files/test_enhanced_pipeline.py
+python tests/test_enhanced_pipeline.py
 
 # Test specific images
 python src/test_files/test_enhanced_pipeline.py path/to/image1.jpg path/to/image2.png
@@ -324,14 +324,14 @@ if success:
 
 ---
 
-### `test_enhanced_pipeline_health_check.py`
+### `test_health_check.py`
 **Purpose:** Fast health check for enhanced YOLO + preprocessing pipeline  
 **Description:** Quickly validates the YOLO detection + preprocessing pipeline by randomly selecting and testing images. Provides rapid feedback on pipeline health with minimal setup.
 
 **Usage:**
 ```bash
 # Test 6 random images (default)
-python src/test_files/test_enhanced_pipeline_health_check.py
+python tests/test_health_check.py
 
 # Test custom number of images
 python src/test_files/test_enhanced_pipeline_health_check.py --num 10
@@ -466,13 +466,13 @@ python src/data/process_svhn_seg.py
 
 ## full_pipelines/ - End-to-End Solutions
 
-### `single_photo_full_pipeline_not_up_to_date.py`
+### `single_photo_pipeline.py`
 **Purpose:** Complete digit detection and recognition for a single image  
-**Description:** Given an image path, detects all digit bounding boxes (YOLO) and classifies each digit. Returns annotated image and prediction data. ⚠️ **Note: This file is marked as not-up-to-date and may need revision.**
+**Description:** Given an image path, detects all digit bounding boxes (YOLO) and classifies each digit. Returns annotated image and prediction data.
 
 **Usage:**
 ```bash
-python src/full_pipelines/single_photo_full_pipeline_not_up_to_date.py <image_path>
+python src/full_pipelines/single_photo_pipeline.py <image_path>
 ```
 
 **Arguments:**
@@ -498,13 +498,13 @@ python src/full_pipelines/single_photo_full_pipeline_not_up_to_date.py <image_pa
 
 ---
 
-### `all_photos_full_pipeline_not_up_to_date.py`
+### `all_photos_pipeline.py`
 **Purpose:** Batch process multiple images  
-**Description:** Applies the full detection and recognition pipeline to all images in an input directory. ⚠️ **Note: This file is marked as not-up-to-date and may need revision.**
+**Description:** Applies the full detection and recognition pipeline to all images in an input directory.
 
 **Usage:**
 ```bash
-python src/full_pipelines/all_photos_full_pipeline_not_up_to_date.py <input_dir>
+python src/full_pipelines/all_photos_pipeline.py <input_dir>
 ```
 
 **Arguments:**
@@ -518,13 +518,13 @@ python src/full_pipelines/all_photos_full_pipeline_not_up_to_date.py <input_dir>
 
 ## test_files/ - Testing & Validation
 
-### `test_digit_accuracy.py`
+### `test_digit_recognizer.py`
 **Purpose:** Evaluate digit classifier accuracy  
 **Description:** Tests the trained digit classifier on test dataset and reports accuracy metrics.
 
 **Usage:**
 ```bash
-python src/test_files/test_digit_accuracy.py
+python tests/test_digit_recognizer.py
 ```
 
 **Outputs:**
@@ -533,13 +533,13 @@ python src/test_files/test_digit_accuracy.py
 
 ---
 
-### `test_full_pipeline_accuracy.py`
+### `test_full_pipeline.py`
 **Purpose:** Evaluate end-to-end pipeline performance  
 **Description:** Tests the complete detection + recognition pipeline on images with ground truth labels.
 
 **Usage:**
 ```bash
-python src/test_files/test_full_pipeline_accuracy.py
+python tests/test_full_pipeline.py
 ```
 
 **Outputs:**
@@ -549,13 +549,13 @@ python src/test_files/test_full_pipeline_accuracy.py
 
 ---
 
-### `test_svhn_pipeline.py`
+### `test_svhn.py`
 **Purpose:** Test on SVHN dataset  
 **Description:** Evaluates the full pipeline on SVHN test set with house number images.
 
 **Usage:**
 ```bash
-python src/test_files/test_svhn_pipeline.py
+python tests/test_svhn.py
 ```
 
 **Outputs:**
@@ -575,7 +575,7 @@ python src/data/download_datasets.py
 python src/prep_data.py --clean
 
 # 3. Train models (automatic in pipeline)
-python src/BoundingBox/run_yolo_flow.py
+python src/bounding_box/run_yolo_flow.py
 ```
 
 ### Use the Pipeline
@@ -587,8 +587,8 @@ python src/full_pipelines/single_photo_full_pipeline_not_up_to_date.py path/to/i
 python src/full_pipelines/all_photos_full_pipeline_not_up_to_date.py path/to/image/directory/
 
 # Test and evaluate
-python src/test_files/test_digit_accuracy.py
-python src/test_files/test_full_pipeline_accuracy.py
+python tests/test_digit_recognizer.py
+python tests/test_full_pipeline.py
 ```
 
 ---

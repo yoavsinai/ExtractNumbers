@@ -10,8 +10,8 @@ import torchvision.transforms as T
 import torchvision.models as models
 
 # Import from existing modules (assuming they are in the same project)
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'BoundingBox'))
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'DigitRecognizer'))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bounding_box'))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'digit_recognizer'))
 
 from yolo_detector import xyxy_to_yolo_bbox  # if needed, but we'll use ultralytics directly
 from digit_recognizer import build_digit_model, preprocess_crop, get_device
@@ -76,7 +76,7 @@ def recognize_digits(digit_model, image_path, bboxes):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python singlePhotoPipeline.py <image_path> <output_mode>")
+        print("Usage: python single_photo_pipeline.py <image_path> <output_mode>")
         print("output_mode: 'print' to print results, 'silent' for no output")
         sys.exit(1)
     

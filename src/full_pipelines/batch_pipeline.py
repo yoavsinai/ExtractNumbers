@@ -39,15 +39,15 @@ def main():
 
     # Step 1: Run YOLO detection to get bounding boxes
     print("Step 1: Running YOLO Bounding Box Detection...")
-    run_script(os.path.join(BASE_DIR, "src", "BoundingBox", "yolo_detector.py"), ["--skip-train"])  # Assuming weights exist, skip training
+    run_script(os.path.join(BASE_DIR, "src", "bounding_box", "yolo_detector.py"), ["--skip-train"])  # Assuming weights exist, skip training
 
     # Step 2: Run Digit Recognition on the detected bounding boxes
     print("Step 2: Running Digit Recognition...")
-    run_script(os.path.join(BASE_DIR, "src", "DigitRecognizer", "digit_recognizer.py"))
+    run_script(os.path.join(BASE_DIR, "src", "digit_recognizer", "digit_recognizer.py"))
 
     # Step 3: Visualize Results
     print("Step 3: Visualizing Results...")
-    run_script(os.path.join(BASE_DIR, "src", "BoundingBox", "visualize_yolo_results.py"))
+    run_script(os.path.join(BASE_DIR, "src", "bounding_box", "visualize_yolo_results.py"))
 
     # Step 4: Extract and Print Labeled Numbers
     print("Step 4: Extracting Labeled Numbers...")

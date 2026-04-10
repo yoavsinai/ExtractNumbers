@@ -31,6 +31,42 @@ def add_letter_noise(pil_img):
         d.text((x, y), char, fill=color)
     return pil_img
 
+def apply_augmentations(img_pil):
+    """
+    Apply augmentations: Add white noise, stretching, blur, lower resolution.
+    Returns the augmented PIL Image.
+    """
+    img = np.array(img_pil)
+    h, w = img.shape[:2]
+
+    # Stretching
+    if random.random() < 0.3:
+        # Stretch horizontal or vertical
+        stretch_w = random.uniform(0.8, 1.2)
+        stretch_h = random.uniform(0.8, 1.2)
+        new_w, new_h = max(1, int(w * stretch_w)), max(1, int(h * stretch_h))
+        img = cv2.resize(img, (new_w, new_h))
+        img = cv2.resize(img, (w, h))
+        
+    # Lower resolution (Pixelation)
+    if random.random() < 0.3:
+        scale_factor = random.uniform(0.2, 0.5)
+        small_w, small_h = max(1, int(w * scale_factor)), max(1, int(h * scale_factor))
+        small = cv2.resize(img, (small_w, small_h), interpolation=cv2.INTER_LINEAR)
+        img = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    # Blur
+    if random.random() < 0.3:
+        kernel_size = random.choice([3, 5])
+        img = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+
+    # White noise
+    if random.random() < 0.3:
+        noise = np.random.normal(0, 15, img.shape).astype(np.float32)
+        img = np.clip(img.astype(np.float32) + noise, 0, 255).astype(np.uint8)
+
+    return Image.fromarray(img)
+
 def process_mnist():
     print("Processing MNIST...")
     trainset = torchvision.datasets.MNIST(root=DATA_RAW, train=True, download=False)
@@ -40,6 +76,7 @@ def process_mnist():
         ensure_dir(out_dir)
         img_rgb = img.convert("RGB").resize(TARGET_SIZE)
         img_rgb = add_letter_noise(img_rgb)
+        img_rgb = apply_augmentations(img_rgb)
         img_rgb.save(os.path.join(out_dir, f"mnist_{i}_{label}.png"))
 
 def process_svhn():
@@ -52,6 +89,7 @@ def process_svhn():
          ensure_dir(out_dir)
          img_rgb = img.convert("RGB").resize(TARGET_SIZE)
          img_rgb = add_letter_noise(img_rgb)
+         img_rgb = apply_augmentations(img_rgb)
          img_rgb.save(os.path.join(out_dir, f"house_{i}_{l}.png"))
 
 def process_handwritten_kaggle():
@@ -87,6 +125,7 @@ def process_handwritten_kaggle():
                 img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 pil_img = Image.fromarray(img_rgb)
                 pil_img = add_letter_noise(pil_img)
+                pil_img = apply_augmentations(pil_img)
                 cv2.imwrite(os.path.join(out_dir, f"handwritten_{i}_{label}.png"), cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR))
 
 def generate_multi_digits():
@@ -114,6 +153,7 @@ def generate_multi_digits():
         
         pil_img = Image.fromarray(cv2.cvtColor(concat, cv2.COLOR_BGR2RGB))
         pil_img = add_letter_noise(pil_img)
+        pil_img = apply_augmentations(pil_img)
         cv2.imwrite(os.path.join(out_dir, f"multidigit_{i}_{actual_number_str}.png"), cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR))
 
 if __name__ == "__main__":
