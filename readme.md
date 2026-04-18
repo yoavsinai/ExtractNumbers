@@ -48,15 +48,15 @@ Each segmentation sample is isolated in its own numeric folder (e.g., `data/segm
 The project follows a multi-stage pipeline to ensure high accuracy in digit extraction and recognition:
 
 1. **Input**: Segmentation data from the three categories (Natural, Synthetic, Handwritten) with applied noise and augmentations.
-2. **Global Detection**: Using **GlobalBB** to detect and crop a Bounding Box around the entire number sequence.
+2. **Global Detection**: Using **YOLO** to detect and crop a Bounding Box around the entire number sequence.
 3. **Image Sharpening**: Applying sharpening filters to the cropped Bounding Box to enhance digit clarity and edges.
-4. **Individual Digit Detection**: A second **GlobalBB** pass on the sharpened image to detect and crop Bounding Boxes for each digit individually.
+4. **Individual Digit Detection**: A second **YOLO** pass on the sharpened image to detect and crop Bounding Boxes for each digit individually.
 
 ![Process Pipeline](assets/diagram.PNG)
 
 ## Global Bounding-Box Detection
 
-**How it works:** The script automatically scans your `mask.png` files, extracts separate bounding box coordinates for each valid digit blob, and builds a GlobalBB-compatible dataset. It then performs an 80/20 train-validation split and trains a GlobalBBv8 model on these coordinates for 20 epochs. Automatically, the best-performing model weights are saved to disk and then used to run inference across your dataset.
+**How it works:** The script automatically scans your `mask.png` files, extracts separate bounding box coordinates for each valid digit blob, and builds a YOLO-compatible dataset. It then performs an 80/20 train-validation split and trains a YOLOv8 model on these coordinates for 20 epochs. Automatically, the best-performing model weights are saved to disk and then used to run inference across your dataset.
 
 To run the bounding-box detection and evaluation pipeline, execute the following command from the project root:
 
