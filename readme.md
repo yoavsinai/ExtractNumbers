@@ -54,7 +54,15 @@ The project follows a multi-stage pipeline to ensure high accuracy in digit extr
 
 ![Process Pipeline](assets/diagram.PNG)
 
-## Global Bounding-Box Detection
+### Running the Full Enhanced Pipeline
+To execute the entire multi-stage process (Detection + Sharpening + Progress Visualization), run:
+
+```bash
+python "src/full_pipelines/run_full_enhanced_flow.py" --analyze-only
+```
+*Note: The `--analyze-only` flag is recommended for fast execution if the initial detection has already been run.*
+
+## Global Bounding-Box Detection (Stage 1)
 
 **How it works:** The script automatically scans your `mask.png` files, extracts separate bounding box coordinates for each valid digit blob, and builds a YOLO-compatible dataset. It then performs an 80/20 train-validation split and trains a YOLOv8 model on these coordinates for 20 epochs. Automatically, the best-performing model weights are saved to disk and then used to run inference across your dataset.
 
