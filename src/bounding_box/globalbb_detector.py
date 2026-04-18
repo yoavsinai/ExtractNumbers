@@ -34,7 +34,7 @@ def bbox_from_mask(mask: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
 def extract_digit_bboxes(mask: np.ndarray, min_area: int = 10) -> List[Tuple[int, int, int, int]]:
     """Return (x1,y1,x2,y2) for each individual digit contour, sorted left-to-right.
 
-    Used only for final evaluation ground truth — NOT for YOLO training labels.
+    Used only for final evaluation ground truth — NOT for GlobalBB training labels.
     """
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     boxes = []
@@ -45,7 +45,7 @@ def extract_digit_bboxes(mask: np.ndarray, min_area: int = 10) -> List[Tuple[int
     return sorted(boxes, key=lambda b: b[0])
 
 
-def xyxy_to_yolo_bbox(
+def xyxy_to_globalbb_bbox(
     xyxy: Tuple[int, int, int, int], w: int, h: int
 ) -> Tuple[float, float, float, float]:
     x1, y1, x2, y2 = xyxy
@@ -103,16 +103,16 @@ def stratified_split(
     return train, val
 
 
-def make_yolo_dataset(
+def make_globalbb_dataset(
     samples: List[Dict[str, str]],
     categories: List[str],
     dataset_root: str,
-    yolo_out_root: str,
+    globalbb_out_root: str,
     split_ratio: float,
     seed: int,
 ) -> str:
     """
-    Creates a YOLO dataset folder with:
+    Creates a GlobalBB dataset folder with:
       images/train, images/val, labels/train, labels/val
     Returns the path to the generated data.yaml.
     """
@@ -122,10 +122,10 @@ def make_yolo_dataset(
         samples, split_ratio=split_ratio, seed=seed, categories=categories
     )
 
-    images_train_dir = os.path.join(yolo_out_root, "images", "train")
-    images_val_dir = os.path.join(yolo_out_root, "images", "val")
-    labels_train_dir = os.path.join(yolo_out_root, "labels", "train")
-    labels_val_dir = os.path.join(yolo_out_root, "labels", "val")
+    images_train_dir = os.path.join(globalbb_out_root, "images", "train")
+    images_val_dir = os.path.join(globalbb_out_root, "images", "val")
+    labels_train_dir = os.path.join(globalbb_out_root, "labels", "train")
+    labels_val_dir = os.path.join(globalbb_out_root, "labels", "val")
     ensure_dir(images_train_dir)
     ensure_dir(images_val_dir)
     ensure_dir(labels_train_dir)
@@ -181,8 +181,8 @@ def make_yolo_dataset(
         return True
 
     # Clear previous conversions (only inside output folder).
-    if os.path.exists(yolo_out_root):
-        shutil.rmtree(yolo_out_root)
+    if os.path.exists(globalbb_out_root):
+        shutil.rmtree(globalbb_out_root)
     ensure_dir(images_train_dir)
     ensure_dir(images_val_dir)
     ensure_dir(labels_train_dir)
@@ -190,14 +190,14 @@ def make_yolo_dataset(
 
     for split_name, split_samples in [("train", train_samples), ("val", val_samples)]:
         kept = 0
-        for s in tqdm(split_samples, desc=f"Converting {split_name} to YOLO", ncols=90):
+        for s in tqdm(split_samples, desc=f"Converting {split_name} to GlobalBB", ncols=90):
             ok = process_one(split_name, s)
             kept += int(ok)
-        print(f"YOLO conversion: kept {kept}/{len(split_samples)} samples in {split_name}")
+        print(f"GlobalBB conversion: kept {kept}/{len(split_samples)} samples in {split_name}")
 
-    data_yaml_path = os.path.join(yolo_out_root, "data.yaml")
+    data_yaml_path = os.path.join(globalbb_out_root, "data.yaml")
     yaml_obj = {
-        "path": yolo_out_root,
+        "path": globalbb_out_root,
         "train": "images/train",
         "val": "images/val",
         "names": ["number_sequence"],
@@ -208,22 +208,22 @@ def make_yolo_dataset(
     return data_yaml_path
 
 
-def make_digit_yolo_dataset(
+def make_digit_globalbb_dataset(
     samples: List[Dict[str, str]],
     categories: List[str],
-    yolo_out_root: str,
+    globalbb_out_root: str,
     split_ratio: float,
     seed: int,
     min_area: int = 10,
 ) -> str:
-    """Create a YOLO dataset where every digit gets its own label box.
+    """Create a GlobalBB dataset where every digit gets its own label box.
 
     Each mask.png is scanned contour-by-contour. Images with exactly one digit
     get one label line; images with N digits get N label lines. Images whose mask
     yields zero valid contours are skipped entirely.
 
     This dataset is used for the second-stage digit detector (applied to the
-    sharpened crops produced by the first YOLO).
+    sharpened crops produced by the first GlobalBB).
     """
     import yaml
 
@@ -231,11 +231,11 @@ def make_digit_yolo_dataset(
         samples, split_ratio=split_ratio, seed=seed, categories=categories
     )
 
-    if os.path.exists(yolo_out_root):
-        shutil.rmtree(yolo_out_root)
+    if os.path.exists(globalbb_out_root):
+        shutil.rmtree(globalbb_out_root)
     for split in ("train", "val"):
-        ensure_dir(os.path.join(yolo_out_root, "images", split))
-        ensure_dir(os.path.join(yolo_out_root, "labels", split))
+        ensure_dir(os.path.join(globalbb_out_root, "images", split))
+        ensure_dir(os.path.join(globalbb_out_root, "labels", split))
 
     def process_one(split: str, sample: Dict[str, str]) -> int:
         image_path = sample["image_path"]
@@ -243,8 +243,8 @@ def make_digit_yolo_dataset(
         category = sample["category"]
         idx = sample["sample_id"].split("/", 1)[1]
         stem = f"{category}_{idx}"
-        dst_img = os.path.join(yolo_out_root, "images", split, f"{stem}.jpg")
-        dst_lbl = os.path.join(yolo_out_root, "labels", split, f"{stem}.txt")
+        dst_img = os.path.join(globalbb_out_root, "images", split, f"{stem}.jpg")
+        dst_lbl = os.path.join(globalbb_out_root, "labels", split, f"{stem}.txt")
 
         img = cv2.imread(image_path, cv2.IMREAD_COLOR)
         if img is None:
@@ -282,16 +282,16 @@ def make_digit_yolo_dataset(
             f"({'avg ' + f'{total_digits/kept:.1f}' if kept else 'n/a'} digits/image)"
         )
 
-    data_yaml_path = os.path.join(yolo_out_root, "data.yaml")
+    data_yaml_path = os.path.join(globalbb_out_root, "data.yaml")
     with open(data_yaml_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(
-            {"path": yolo_out_root, "train": "images/train", "val": "images/val", "names": ["digit"]},
+            {"path": globalbb_out_root, "train": "images/train", "val": "images/val", "names": ["digit"]},
             f,
         )
     return data_yaml_path
 
 
-def yolo_predict_all(
+def globalbb_predict_all(
     model,
     samples: List[Dict[str, str]],
     categories: List[str],
@@ -302,7 +302,7 @@ def yolo_predict_all(
 ) -> None:
     rows: List[Dict[str, object]] = []
     
-    for s in tqdm(samples, desc="YOLO inference (Multi-box)", ncols=90):
+    for s in tqdm(samples, desc="GlobalBB inference (Multi-box)", ncols=90):
         image_path = s["image_path"]
         category = s["category"]
         sample_id = s["sample_id"]
@@ -348,7 +348,7 @@ def save_digit_gt_boxes(samples: List[Dict[str, str]], output_csv: str, min_area
     """Save per-digit ground-truth boxes extracted from masks.
 
     Each row is one digit bbox. Used for final evaluation after step 4 (post-sharpening
-    digit detection), NOT for YOLO training.
+    digit detection), NOT for GlobalBB training.
     """
     rows: List[Dict[str, object]] = []
     for s in tqdm(samples, desc="Extracting digit GT boxes from masks", ncols=90):
@@ -365,7 +365,7 @@ def save_digit_gt_boxes(samples: List[Dict[str, str]], output_csv: str, min_area
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="YOLO bounding-box detector from masks")
+    parser = argparse.ArgumentParser(description="GlobalBB bounding-box detector from masks")
     parser.add_argument(
         "--dataset-root",
         default=os.path.join("data", "segmentation"),
@@ -374,7 +374,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         default=os.path.join("outputs", "bbox_comparison"),
-        help="Where to store YOLO dataset conversion, weights, and predictions.",
+        help="Where to store GlobalBB dataset conversion, weights, and predictions.",
     )
     parser.add_argument("--img-size", type=int, default=256)
     parser.add_argument("--epochs", type=int, default=20)
@@ -383,7 +383,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--conf-thres", type=float, default=0.25)
     parser.add_argument("--nms-iou", type=float, default=0.7)
-    parser.add_argument("--yolo-weights", type=str, default="yolov8n.pt")
+    parser.add_argument("--globalbb-weights", type=str, default="yolov8n.pt")
     parser.add_argument("--device", type=str, default="",
                         help="Examples: 'cpu', '0', '0,1'. Empty auto-detect.")
     parser.add_argument(
@@ -394,7 +394,7 @@ def main() -> None:
     parser.add_argument(
         "--overwrite-conversion",
         action="store_true",
-        help="Force regeneration of YOLO dataset conversion.",
+        help="Force regeneration of GlobalBB dataset conversion.",
     )
     args = parser.parse_args()
 
@@ -408,55 +408,55 @@ def main() -> None:
 
     samples = iter_samples(dataset_root, categories=categories)
 
-    # Convert masks -> YOLO labels and create a YOLO dataset for training.
-    yolo_out_root = os.path.join(output_dir, "yolo_dataset")
-    conversion_yaml_path = os.path.join(yolo_out_root, "data.yaml")
+    # Convert masks -> GlobalBB labels and create a GlobalBB dataset for training.
+    globalbb_out_root = os.path.join(output_dir, "globalbb_dataset")
+    conversion_yaml_path = os.path.join(globalbb_out_root, "data.yaml")
     if args.overwrite_conversion or not os.path.exists(conversion_yaml_path):
-        print("Creating YOLO dataset conversion...")
-        data_yaml_path = make_yolo_dataset(
+        print("Creating GlobalBB dataset conversion...")
+        data_yaml_path = make_globalbb_dataset(
             samples=samples,
             categories=categories,
             dataset_root=dataset_root,
-            yolo_out_root=yolo_out_root,
+            globalbb_out_root=globalbb_out_root,
             split_ratio=args.split_ratio,
             seed=args.seed,
         )
     else:
         data_yaml_path = conversion_yaml_path
 
-    # Build per-digit YOLO dataset (one label line per digit) for the second-stage detector.
-    digit_yolo_out_root = os.path.join(output_dir, "yolo_digit_dataset")
-    digit_conversion_yaml = os.path.join(digit_yolo_out_root, "data.yaml")
+    # Build per-digit GlobalBB dataset (one label line per digit) for the second-stage detector.
+    digit_globalbb_out_root = os.path.join(output_dir, "globalbb_digit_dataset")
+    digit_conversion_yaml = os.path.join(digit_globalbb_out_root, "data.yaml")
     if args.overwrite_conversion or not os.path.exists(digit_conversion_yaml):
-        print("Creating per-digit YOLO dataset (one box per digit)...")
-        make_digit_yolo_dataset(
+        print("Creating per-digit GlobalBB dataset (one box per digit)...")
+        make_digit_globalbb_dataset(
             samples=samples,
             categories=categories,
-            yolo_out_root=digit_yolo_out_root,
+            globalbb_out_root=digit_globalbb_out_root,
             split_ratio=args.split_ratio,
             seed=args.seed,
         )
     else:
-        print(f"Per-digit YOLO dataset already exists: {digit_yolo_out_root}")
+        print(f"Per-digit GlobalBB dataset already exists: {digit_globalbb_out_root}")
 
     # Save per-digit GT boxes as a CSV (used for final evaluation after step 4,
-    # NOT as YOLO training labels — those use a single union box per image).
+    # NOT as GlobalBB training labels — those use a single union box per image).
     digit_gt_csv = os.path.join(output_dir, "digit_gt_boxes.csv")
     if args.overwrite_conversion or not os.path.exists(digit_gt_csv):
         print("Extracting per-digit ground-truth boxes from masks...")
         save_digit_gt_boxes(samples, digit_gt_csv)
         print(f"Digit GT boxes saved to: {digit_gt_csv}")
 
-    # Train YOLO.
-    yolo_weights_dir = os.path.join(output_dir, "yolo_run")
-    best_pt_path = os.path.join(yolo_weights_dir, "weights", "best.pt")
+    # Train GlobalBB.
+    globalbb_weights_dir = os.path.join(output_dir, "globalbb_run")
+    best_pt_path = os.path.join(globalbb_weights_dir, "weights", "best.pt")
 
     if not args.skip_train or not os.path.exists(best_pt_path):
         try:
             from ultralytics import YOLO  # type: ignore
         except Exception as e:
             raise RuntimeError(
-                "Missing YOLO dependency. Please run `pip install ultralytics`."
+                "Missing GlobalBB dependency. Please run `pip install ultralytics`."
             ) from e
 
         if args.device:
@@ -469,8 +469,8 @@ def main() -> None:
             except Exception:
                 device = "cpu"
 
-        print("Training YOLO detector...")
-        model = YOLO(args.yolo_weights)
+        print("Training GlobalBB detector...")
+        model = YOLO(args.globalbb_weights)
         # ultralytics creates a run directory; we direct its base save_dir for stability.
         results = model.train(
             data=data_yaml_path,
@@ -478,7 +478,7 @@ def main() -> None:
             imgsz=args.img_size,
             batch=args.batch,
             device=device,
-            project=os.path.join(output_dir, "yolo_runs"),
+            project=os.path.join(output_dir, "globalbb_runs"),
             name="run1",
             exist_ok=True,
             verbose=True,
@@ -496,11 +496,11 @@ def main() -> None:
             inferred_best = None
 
         if inferred_best is None or not os.path.exists(inferred_best):
-            # Fallback to ultralytics default layout within yolo_out_root.
+            # Fallback to ultralytics default layout within globalbb_out_root.
             # If this fails, user will see missing file error below.
             inferred_best = best_pt_path
 
-        ensure_dir(yolo_weights_dir)
+        ensure_dir(globalbb_weights_dir)
         # Copy best weights into our stable path.
         if inferred_best != best_pt_path and os.path.exists(inferred_best):
             ensure_dir(os.path.dirname(best_pt_path))
@@ -510,18 +510,18 @@ def main() -> None:
 
     if not os.path.exists(best_pt_path):
         raise FileNotFoundError(
-            f"Could not locate YOLO best weights at: {best_pt_path}. "
+            f"Could not locate GlobalBB best weights at: {best_pt_path}. "
             f"Run without `--skip-train` to train."
         )
 
     # Inference on the full dataset.
     from ultralytics import YOLO  # type: ignore
 
-    print("Running YOLO inference on full dataset...")
+    print("Running GlobalBB inference on full dataset...")
     model = YOLO(best_pt_path)
 
-    output_csv = os.path.join(output_dir, "yolo_predictions.csv")
-    yolo_predict_all(
+    output_csv = os.path.join(output_dir, "globalbb_predictions.csv")
+    globalbb_predict_all(
         model=model,
         samples=samples,
         categories=categories,
@@ -530,7 +530,7 @@ def main() -> None:
         iou_thres=args.nms_iou,
         output_csv=output_csv,
     )
-    print(f"YOLO predictions saved to: {output_csv}")
+    print(f"GlobalBB predictions saved to: {output_csv}")
 
 
 if __name__ == "__main__":

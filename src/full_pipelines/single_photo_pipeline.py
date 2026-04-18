@@ -13,15 +13,15 @@ import torchvision.models as models
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'bounding_box'))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'digit_recognizer'))
 
-from yolo_detector import xyxy_to_yolo_bbox  # if needed, but we'll use ultralytics directly
+from globalbb_detector import xyxy_to_globalbb_bbox  # if needed, but we'll use ultralytics directly
 from digit_recognizer import build_digit_model, preprocess_crop, get_device
 
-def load_yolo_model(weights_path):
+def load_globalbb_model(weights_path):
     try:
         from ultralytics import YOLO
         return YOLO(weights_path)
     except ImportError:
-        raise RuntimeError("YOLO not available. Install ultralytics.")
+        raise RuntimeError("GlobalBB not available. Install ultralytics.")
 
 def load_digit_model(model_path):
     model = build_digit_model()
@@ -31,8 +31,8 @@ def load_digit_model(model_path):
     model.eval()
     return model
 
-def run_yolo_on_image(yolo_model, image_path, conf_thres=0.25, iou_thres=0.7):
-    results = yolo_model.predict(
+def run_globalbb_on_image(globalbb_model, image_path, conf_thres=0.25, iou_thres=0.7):
+    results = globalbb_model.predict(
         source=image_path,
         imgsz=256,
         conf=conf_thres,
@@ -54,7 +54,7 @@ def recognize_digits(digit_model, image_path, bboxes):
     all_digits = []
     device = get_device()
     
-    # Sort yolo boxes left to right
+    # Sort globalbb boxes left to right
     bboxes = sorted(bboxes, key=lambda b: b[0])
 
     for bbox in bboxes:
@@ -89,11 +89,11 @@ def main():
     
     # Paths (adjust as needed)
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    yolo_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "yolo_run", "weights", "best.pt")
+    globalbb_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "globalbb_run", "weights", "best.pt")
     digit_weights = os.path.join(base_dir, "outputs", "bbox_comparison", "digit_classifier.pth")
     
-    if not os.path.exists(yolo_weights):
-        print(f"YOLO weights not found: {yolo_weights}")
+    if not os.path.exists(globalbb_weights):
+        print(f"GlobalBB weights not found: {globalbb_weights}")
         sys.exit(1)
     
     if not os.path.exists(digit_weights):
@@ -101,11 +101,11 @@ def main():
         sys.exit(1)
     
     # Load models
-    yolo_model = load_yolo_model(yolo_weights)
+    globalbb_model = load_globalbb_model(globalbb_weights)
     digit_model = load_digit_model(digit_weights)
     
     # Run detection
-    bboxes, confs = run_yolo_on_image(yolo_model, image_path)
+    bboxes, confs = run_globalbb_on_image(globalbb_model, image_path)
     
     if len(bboxes) == 0:
         result = "No digits detected"

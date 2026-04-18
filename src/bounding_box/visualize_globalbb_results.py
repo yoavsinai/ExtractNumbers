@@ -6,9 +6,9 @@ import numpy as np
 
 # Path configuration
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CSV_PATH = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_predictions.csv")
-VAL_IMAGES_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_dataset", "images", "val")
-OUTPUT_IMAGE = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "yolo_comparison_summary.png")
+CSV_PATH = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "globalbb_predictions.csv")
+VAL_IMAGES_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "globalbb_dataset", "images", "val")
+OUTPUT_IMAGE = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "globalbb_comparison_summary.png")
 
 def main():
     if not os.path.exists(CSV_PATH):
@@ -72,7 +72,7 @@ def main():
                     if bw * bh > 10:
                         ax.add_patch(plt.Rectangle((bx, by), bw, bh, fill=False, edgecolor='lime', linewidth=3))
             
-            # Draw YOLO predicted boxes (red).
+            # Draw GlobalBB predicted boxes (red).
             predictions = cat_df[cat_df['image_path'] == img_path]
             for _, pred in predictions.iterrows():
                 if pd.notna(pred['pred_x1']):
@@ -83,7 +83,7 @@ def main():
             ax.set_title(f"TEST IMAGE: {cat}")
             ax.axis('off')
 
-    plt.suptitle("YOLO Final Test Results (Unseen Data)\nGreen = Truth | Red = Prediction", fontsize=10)
+    plt.suptitle("GlobalBB Final Test Results (Unseen Data)\nGreen = Truth | Red = Prediction", fontsize=10)
     plt.savefig(OUTPUT_IMAGE, bbox_inches='tight')
     print(f"Test visualization saved to: {OUTPUT_IMAGE}")
     plt.show()

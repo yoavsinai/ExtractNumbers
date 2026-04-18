@@ -37,9 +37,9 @@ def extract_labeled_numbers():
 def main():
     print("Starting Full Pipeline: Image to Labeled Numbers")
 
-    # Step 1: Run YOLO detection to get bounding boxes
-    print("Step 1: Running YOLO Bounding Box Detection...")
-    run_script(os.path.join(BASE_DIR, "src", "bounding_box", "yolo_detector.py"), ["--skip-train"])  # Assuming weights exist, skip training
+    # Step 1: Run GlobalBB detection to get bounding boxes
+    print("Step 1: Running GlobalBB Bounding Box Detection...")
+    run_script(os.path.join(BASE_DIR, "src", "bounding_box", "globalbb_detector.py"), ["--skip-train"])  # Assuming weights exist, skip training
 
     # Step 2: Run Digit Recognition on the detected bounding boxes
     print("Step 2: Running Digit Recognition...")
@@ -47,7 +47,7 @@ def main():
 
     # Step 3: Visualize Results
     print("Step 3: Visualizing Results...")
-    run_script(os.path.join(BASE_DIR, "src", "bounding_box", "visualize_yolo_results.py"))
+    run_script(os.path.join(BASE_DIR, "src", "bounding_box", "visualize_globalbb_results.py"))
 
     # Step 4: Extract and Print Labeled Numbers
     print("Step 4: Extracting Labeled Numbers...")

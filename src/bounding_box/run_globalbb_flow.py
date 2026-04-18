@@ -13,7 +13,7 @@ import random
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SRC_DIR = os.path.join(BASE_DIR, "src", "bounding_box")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
-YOLO_RUN_DIR = os.path.join(OUTPUT_DIR, "yolo_runs", "run1")
+GlobalBB_RUN_DIR = os.path.join(OUTPUT_DIR, "globalbb_runs", "run1")
 
 def run_quiet_script(script_name, args=[]):
     """Run a Python script and print output only on error."""
@@ -29,7 +29,7 @@ def run_quiet_script(script_name, args=[]):
     return result.stdout
 
 def analyze_epochs(csv_path):
-    """Analyze YOLO results.csv to track epoch-by-epoch improvement."""
+    """Analyze GlobalBB results.csv to track epoch-by-epoch improvement."""
     if not os.path.exists(csv_path): return
     df = pd.read_csv(csv_path)
     df.columns = df.columns.str.strip()
@@ -126,29 +126,29 @@ def main():
     time.sleep(2)
 
     if not args.analyze_only:
-        # 1. Run YOLO training and inference.
-        print("Step 1/3: Running YOLO Training & Inference...")
+        # 1. Run GlobalBB training and inference.
+        print("Step 1/3: Running GlobalBB Training & Inference...")
         
-        yolo_args = [
+        globalbb_args = [
             "--dataset-root", os.path.join(BASE_DIR, "data", "segmentation"),
             "--output-dir", OUTPUT_DIR,
             "--epochs", "20",
             "--overwrite-conversion"
         ]
         if args.skip_train:
-            yolo_args.append("--skip-train")
+            globalbb_args.append("--skip-train")
 
-        run_quiet_script("yolo_detector.py", yolo_args)
+        run_quiet_script("globalbb_detector.py", globalbb_args)
     else:
-        print("Step 1/3: Skipping YOLO Training & Inference (--analyze-only enabled)...")
+        print("Step 1/3: Skipping GlobalBB Training & Inference (--analyze-only enabled)...")
 
-    # 2. Print final YOLO metrics from results.csv.
-    results_csv = os.path.join(YOLO_RUN_DIR, "results.csv")
+    # 2. Print final GlobalBB metrics from results.csv.
+    results_csv = os.path.join(GlobalBB_RUN_DIR, "results.csv")
     if os.path.exists(results_csv):
         rdf = pd.read_csv(results_csv)
         rdf.columns = rdf.columns.str.strip()
         last = rdf.iloc[-1]
-        print("\n=== YOLO Final Performance Summary ===")
+        print("\n=== GlobalBB Final Performance Summary ===")
         print(f"Overall mAP50:  {last['metrics/mAP50(B)']:.2%}")
         print(f"Precision:      {last['metrics/precision(B)']:.2%}")
         print(f"Recall:         {last['metrics/recall(B)']:.2%}")
@@ -156,7 +156,7 @@ def main():
         analyze_epochs(results_csv)
 
     # 3. Analyze predictions by category.
-    pred_csv = os.path.join(OUTPUT_DIR, "yolo_predictions.csv")
+    pred_csv = os.path.join(OUTPUT_DIR, "globalbb_predictions.csv")
     if os.path.exists(pred_csv):
         pdf = pd.read_csv(pred_csv)
         print("\n=== Accuracy per Category (Average Confidence) ===")
@@ -166,8 +166,8 @@ def main():
 
     # 4. Generate visualization output.
     print("\nStep 3/3: Generating Comparison Images...")
-    run_quiet_script("visualize_yolo_results.py")
-    print(f"Process Complete. Check: {os.path.join(OUTPUT_DIR, 'yolo_comparison_summary.png')}")
+    run_quiet_script("visualize_globalbb_results.py")
+    print(f"Process Complete. Check: {os.path.join(OUTPUT_DIR, 'globalbb_comparison_summary.png')}")
 
 if __name__ == "__main__":
     main()
