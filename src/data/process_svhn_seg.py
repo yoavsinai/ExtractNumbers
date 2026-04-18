@@ -65,11 +65,13 @@ def download_and_extract():
         print("Verifying download integrity...")
         _verify_sha256(tar_path, SVHN_TEST_SHA256)
     test_dir = os.path.join(DATA_RAW, "test")
-    if not os.path.exists(test_dir):
-        print("Extracting...")
+    # בדיקה אם קיימת לפחות תמונה אחת. אם לא - חלץ הכל.
+    sample_img = os.path.join(test_dir, "1.png")
+    if not os.path.exists(sample_img):
+        print("Images not found. Extracting full archive (this may take a while)...")
         with tarfile.open(tar_path) as tar:
             tar.extractall(path=DATA_RAW)
-
+            
 def process_svhn_masks():
     print("Processing SVHN Format 1 into masks...")
     mat_file = os.path.join(DATA_RAW, "test", "digitStruct.mat")
