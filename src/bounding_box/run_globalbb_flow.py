@@ -50,7 +50,6 @@ def analyze_epochs(csv_path):
         print("\nRecommendation: The model is still improving. 20 epochs is appropriate.")
 
 
-
 def preview_ground_truth():
     """Create a preview image to verify labels before training."""
     print("\nGenerating Ground Truth preview...")
@@ -82,15 +81,28 @@ def preview_ground_truth():
             ax = axes[i, j]
             ax.imshow(img)
             
-            # Use the same contour logic used for label generation.
             if mask is not None:
-                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
+                # --- החלק המתוקן מתחיל כאן ---
+                
+                # 1. יצירת קרנל (גרעין) למתיחה. 
+                # (15, 3) אומר שאנחנו מותחים הרבה לרוחב (כדי לחבר ספרות) וקצת לגובה.
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 3))
+                
+                # 2. ביצוע Dilation - זה יגרום לספרות קרובות "להידבק"
                 dilated_mask = cv2.dilate(mask, kernel, iterations=1)
+                
+                # 3. מציאת קונטורים על המסיכה המורחבת
                 contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                
                 for cnt in contours:
-                    bx, by, bw, bh = cv2.boundingRect(cnt)
-                    if bw * bh > 10:
-                        ax.add_patch(plt.Rectangle((bx, by), bw, bh, fill=False, edgecolor='lime', linewidth=3))
+                    # מוצאים את הריבוע החוסם של הקונטור המאוחד
+                    x, y, w, h = cv2.boundingRect(cnt)
+                    
+                    # סינון רעשים קטנים מאוד
+                    if w * h > 10:
+                        ax.add_patch(plt.Rectangle((x, y), w, h, fill=False, edgecolor='lime', linewidth=3))
+                
+                # --- החלק המתוקן מסתיים כאן ---
             
             ax.set_title(f"Preview: {cat}")
             ax.axis('off')
@@ -99,7 +111,6 @@ def preview_ground_truth():
     plt.savefig(preview_img_path, bbox_inches='tight')
     plt.close()
     return preview_img_path
-
 
 
 def main():

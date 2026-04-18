@@ -12,12 +12,9 @@ from tqdm import tqdm
 
 
 def _read_mask_grayscale(mask_path: str) -> np.ndarray:
-    mask = cv2.imread(mask_path, cv2.IMREAD_UNCHANGED)
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
     if mask is None:
         raise FileNotFoundError(f"Could not read mask: {mask_path}")
-    if mask.ndim == 3:
-        # Convert color masks to grayscale.
-        mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
     return mask
 
 
@@ -187,17 +184,57 @@ def make_globalbb_dataset(
     ensure_dir(images_val_dir)
     ensure_dir(labels_train_dir)
     ensure_dir(labels_val_dir)
+    
+    # List to store preview images
+    preview_grid = []
+    category_counts = {cat: 0 for cat in categories}
 
     for split_name, split_samples in [("train", train_samples), ("val", val_samples)]:
         kept = 0
         for s in tqdm(split_samples, desc=f"Converting {split_name} to GlobalBB", ncols=90):
             ok = process_one(split_name, s)
-            kept += int(ok)
+            if ok:
+                kept += 1
+                # Capture for preview (up to 3 per category)
+                cat = s["category"]
+                if category_counts[cat] < 3:
+                    img = cv2.imread(s["image_path"])
+                    mask = _read_mask_grayscale(s["mask_path"])
+                    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
+                    dilated = cv2.dilate(mask, kernel, iterations=1)
+                    contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    
+                    # Draw for preview
+                    preview_img = img.copy()
+                    for cnt in contours:
+                        bx, by, bw, bh = cv2.boundingRect(cnt)
+                        cv2.rectangle(preview_img, (bx, by), (bx+bw, by+bh), (0, 255, 0), 2)
+                    
+                    # Add category label
+                    cv2.putText(preview_img, cat, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                    preview_grid.append(preview_img)
+                    category_counts[cat] += 1
+            
         print(f"GlobalBB conversion: kept {kept}/{len(split_samples)} samples in {split_name}")
 
+    if preview_grid:
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+        for i, ax in enumerate(axes.flat):
+            if i < len(preview_grid):
+                ax.imshow(cv2.cvtColor(preview_grid[i], cv2.COLOR_BGR2RGB))
+            ax.axis('off')
+        preview_path = os.path.join(os.path.dirname(globalbb_out_root), "preview_labels_before_training.png")
+        plt.tight_layout()
+        plt.savefig(preview_path)
+        plt.close()
+        print(f"=> Saved label preview to: {preview_path}")
+
     data_yaml_path = os.path.join(globalbb_out_root, "data.yaml")
+    # Use absolute paths to avoid OneDrive/stale reference issues
+    abs_root = os.path.abspath(globalbb_out_root)
     yaml_obj = {
-        "path": globalbb_out_root,
+        "path": abs_root,
         "train": "images/train",
         "val": "images/val",
         "names": ["number_sequence"],
