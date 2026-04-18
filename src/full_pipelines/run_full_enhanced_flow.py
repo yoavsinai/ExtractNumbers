@@ -284,11 +284,9 @@ def main():
 
     plt.suptitle("FULL EXTRACTION PIPELINE: Multi-Stage Progression", fontsize=18, fontweight='bold', y=0.98)
     plt.savefig(PROG_IMAGE_PATH, bbox_inches='tight', dpi=150)
-    shutil.copy2(PROG_IMAGE_PATH, os.path.join(ASSETS_DIR, "full_pipeline_progression.png"))
     
     print(f"\n=> SUCCESS: All stages complete.")
     print(f"=> Process summary image saved to: {PROG_IMAGE_PATH}")
-    print(f"=> Exported to assets: {os.path.join(ASSETS_DIR, 'full_pipeline_progression.png')}")
 
     # Restore the classic GlobalBB summary report
     print("\nUpdating classic globalbb comparison summary...")
