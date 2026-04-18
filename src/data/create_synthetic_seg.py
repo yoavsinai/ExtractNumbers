@@ -146,8 +146,26 @@ def create_synthetic_seg_images(num_samples=500):
                 if not overlap:
                     # Draw on main image
                     d_img.text((x, y), number_str, fill=color, font=font)
-                    # Draw EXACTLY on mask
-                    d_mask.rectangle(bbox, fill=255)
+                    
+                    # Draw EXACTLY on mask but separate each digit physically
+                    current_x = x
+                    for char in number_str:
+                        try:
+                            char_bbox = d_img.textbbox((current_x, y), char, font=font)
+                        except AttributeError:
+                            w_c, h_c = font.getsize(char)
+                            char_bbox = [current_x, y, current_x + w_c, y + h_c]
+                            
+                        # Shrink by 2 pixels on left/right edges to guarantee they don't merge electrically
+                        cx1 = min(char_bbox[2]-1, char_bbox[0] + 1)
+                        cx2 = max(char_bbox[0]+1, char_bbox[2] - 1)
+                        d_mask.rectangle([cx1, char_bbox[1], cx2, char_bbox[3]], fill=255)
+                        
+                        try:
+                            current_x += int(font.getlength(char))
+                        except AttributeError:
+                            current_x += font.getsize(char)[0]
+                            
                     placed_bboxes.append(bbox)
                     success = True
                     break

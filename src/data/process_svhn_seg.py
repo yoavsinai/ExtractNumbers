@@ -104,11 +104,19 @@ def process_svhn_masks():
             for box in bboxes:
                 left, top, width, height = box
                 left, top, width, height = int(left), int(top), int(width), int(height)
+                
+                # Shrink the box by 2 pixels on each edge to separate naturally touching digits
+                left = left + 2
+                top = top + 1
+                right = left + width - 4
+                bottom = top + height - 2
+                
                 # Cap the bounding boxes
                 left = max(0, left)
                 top = max(0, top)
-                right = min(w, left+width)
-                bottom = min(h, top+height)
+                right = max(left + 1, min(w, right))
+                bottom = max(top + 1, min(h, bottom))
+                
                 cv2.rectangle(mask, (left, top), (right, bottom), 255, -1)
                 
             sample_dir = os.path.join(DATA_PROCESSED, str(processed))

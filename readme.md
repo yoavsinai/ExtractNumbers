@@ -56,24 +56,31 @@ The project follows a multi-stage pipeline to ensure high accuracy in digit extr
 
 ## Global Bounding-Box Detection
 
+**How it works:** The script automatically scans your `mask.png` files, extracts separate bounding box coordinates for each valid digit blob, and builds a YOLO-compatible dataset. It then performs an 80/20 train-validation split and trains a YOLOv8 model on these coordinates for 20 epochs. Automatically, the best-performing model weights are saved to disk and then used to run inference across your dataset.
+
 To run the bounding-box detection and evaluation pipeline, execute the following command from the project root:
 
 ```bash
 python "src/bounding_box/run_yolo_flow.py"
 ```
 
+*(Note: If you have already trained the YOLO model and just want to run the inference to fetch your evaluation results, you can bypass the training phase by appending the `--skip-train` flag!)*
+```bash
+python "src/bounding_box/run_yolo_flow.py" --skip-train
+```
+
 ### Evaluation Results
 
 The current detection model achieves the following overall performance metrics:
 
-* **Overall mAP50**: 92.15%
-* **Precision**: 89.58%
-* **Recall**: 81.04%
+* **Overall mAP50**: 94.47%
+* **Precision**: 84.19%
+* **Recall**: 92.34%
 
 **Accuracy per Category (Average Confidence):**
-* **handwritten**: 88.79% (Total samples: 1330)
-* **natural**: 48.08% (Total samples: 752)
-* **synthetic**: 64.08% (Total samples: 1932)
+* **handwritten**: 74.85% (Total samples: 1532)
+* **natural**: 59.16% (Total samples: 539)
+* **synthetic**: 75.41% (Total samples: 3258)
 
 ## Global Detection & Image Sharpenin Examples
 

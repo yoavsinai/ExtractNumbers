@@ -40,8 +40,8 @@ def main():
     categories = ['natural', 'synthetic', 'handwritten']
     samples_per_cat = 2
     
-    fig, axes = plt.subplots(len(categories), samples_per_cat, figsize=(12, 15))
-    plt.subplots_adjust(hspace=0.4)
+    fig, axes = plt.subplots(len(categories), samples_per_cat, figsize=(10, 8))
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
 
     for i, cat in enumerate(categories):
         cat_df = test_df[test_df['category'] == cat]
@@ -61,15 +61,16 @@ def main():
             ax = axes[i, j]
             ax.imshow(img)
             
-            # Draw ground-truth boxes (green).
+            # Draw ground-truth box (green).
             mask_img = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             if mask_img is not None:
-                contours, _ = cv2.findContours(mask_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for lbl_idx, cnt in enumerate(contours):
-                    x_g, y_g, w_g, h_g = cv2.boundingRect(cnt)
-                    area_g = w_g * h_g
-                    if area_g > 10:
-                        ax.add_patch(plt.Rectangle((x_g, y_g), w_g, h_g, fill=False, edgecolor='lime', linewidth=3))
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
+                dilated_mask = cv2.dilate(mask_img, kernel, iterations=1)
+                contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                for cnt in contours:
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw * bh > 10:
+                        ax.add_patch(plt.Rectangle((bx, by), bw, bh, fill=False, edgecolor='lime', linewidth=3))
             
             # Draw YOLO predicted boxes (red).
             predictions = cat_df[cat_df['image_path'] == img_path]
@@ -82,7 +83,7 @@ def main():
             ax.set_title(f"TEST IMAGE: {cat}")
             ax.axis('off')
 
-    plt.suptitle("YOLO Final Test Results (Unseen Data)\nGreen = Truth | Red = Prediction", fontsize=16)
+    plt.suptitle("YOLO Final Test Results (Unseen Data)\nGreen = Truth | Red = Prediction", fontsize=10)
     plt.savefig(OUTPUT_IMAGE, bbox_inches='tight')
     print(f"Test visualization saved to: {OUTPUT_IMAGE}")
     plt.show()

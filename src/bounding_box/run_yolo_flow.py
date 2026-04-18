@@ -1,3 +1,4 @@
+import argparse
 import os
 import subprocess
 import sys
@@ -38,7 +39,7 @@ def analyze_epochs(csv_path):
     map_vals = df[map_col].values
     for i in range(len(map_vals)):
         diff = map_vals[i] - map_vals[i-1] if i > 0 else 0
-        trend = "▲" if diff > 0.005 else "≈"
+        trend = "^" if diff > 0.005 else "~"
         print(f"Epoch {i+1:02d}: {map_vals[i]:.4f} (Change: {diff:+.4f}) {trend}")
     
     # Simple recommendation based on the recent mAP trend.
@@ -58,8 +59,8 @@ def preview_ground_truth():
     categories = ['natural', 'synthetic', 'handwritten']
     samples_per_cat = 2
     
-    fig, axes = plt.subplots(len(categories), samples_per_cat, figsize=(10, 12))
-    plt.subplots_adjust(hspace=0.4)
+    fig, axes = plt.subplots(len(categories), samples_per_cat, figsize=(10, 8))
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
     
     for i, cat in enumerate(categories):
         cat_dir = os.path.join(dataset_root, cat)
@@ -83,11 +84,13 @@ def preview_ground_truth():
             
             # Use the same contour logic used for label generation.
             if mask is not None:
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
+                dilated_mask = cv2.dilate(mask, kernel, iterations=1)
+                contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                 for cnt in contours:
-                    x, y, w, h = cv2.boundingRect(cnt)
-                    if w * h > 10:
-                        ax.add_patch(plt.Rectangle((x, y), w, h, fill=False, edgecolor='lime', linewidth=3))
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    if bw * bh > 10:
+                        ax.add_patch(plt.Rectangle((bx, by), bw, bh, fill=False, edgecolor='lime', linewidth=3))
             
             ax.set_title(f"Preview: {cat}")
             ax.axis('off')
@@ -100,22 +103,44 @@ def preview_ground_truth():
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--skip-train", action="store_true", help="Skip training and only run inference to generate analysis.")
+    parser.add_argument("--analyze-only", action="store_true", help="Skip both training and inference; only summarize existing CSVs and generate the image.")
+    args = parser.parse_args()
+
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
 
     # Preview step for a quick sanity check.
     preview_path = preview_ground_truth()
-    print(f"\n=> SANITY CHECK: Please open the image at:\n   {preview_path}")
-    
-    
-    # 1. Run YOLO training and inference.
-    print("Step 1/3: Running YOLO Training & Inference...")
-    run_quiet_script("yolo_detector.py", [
-        "--dataset-root", os.path.join(BASE_DIR, "data", "segmentation"),
-        "--output-dir", OUTPUT_DIR,
-        "--epochs", "20",
-        "--overwrite-conversion"
-    ])
+    print(f"\n=> SANITY CHECK: Opening preview image...")
+    # On Windows, this will automatically launch the image viewer
+    if os.name == 'nt':
+        os.startfile(preview_path)
+    else:
+        import subprocess
+        subprocess.run(['open', preview_path] if sys.platform == 'darwin' else ['xdg-open', preview_path])
+        
+    # Give the user a moment to look at it before heavy processing starts
+    import time
+    time.sleep(2)
+
+    if not args.analyze_only:
+        # 1. Run YOLO training and inference.
+        print("Step 1/3: Running YOLO Training & Inference...")
+        
+        yolo_args = [
+            "--dataset-root", os.path.join(BASE_DIR, "data", "segmentation"),
+            "--output-dir", OUTPUT_DIR,
+            "--epochs", "20",
+            "--overwrite-conversion"
+        ]
+        if args.skip_train:
+            yolo_args.append("--skip-train")
+
+        run_quiet_script("yolo_detector.py", yolo_args)
+    else:
+        print("Step 1/3: Skipping YOLO Training & Inference (--analyze-only enabled)...")
 
     # 2. Print final YOLO metrics from results.csv.
     results_csv = os.path.join(YOLO_RUN_DIR, "results.csv")
@@ -142,7 +167,7 @@ def main():
     # 4. Generate visualization output.
     print("\nStep 3/3: Generating Comparison Images...")
     run_quiet_script("visualize_yolo_results.py")
-    print(f"Process Complete. Check: {OUTPUT_DIR}\yolo_comparison_summary.png")
+    print(f"Process Complete. Check: {os.path.join(OUTPUT_DIR, 'yolo_comparison_summary.png')}")
 
 if __name__ == "__main__":
     main()

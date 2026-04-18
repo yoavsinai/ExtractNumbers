@@ -1,12 +1,8 @@
 import argparse
-import csv
 import os
 import random
 import shutil
-import sys
 import time
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import cv2
@@ -26,16 +22,27 @@ def _read_mask_grayscale(mask_path: str) -> np.ndarray:
 
 
 def bbox_from_mask(mask: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
-    """
-    Returns bbox as (x1, y1, x2, y2) with x2/y2 being exclusive.
-    """
+    """Returns a single union bbox (x1,y1,x2,y2) over all non-zero pixels."""
     coords = np.argwhere(mask > 0)
     if coords.size == 0:
         return None
     y_min, x_min = coords.min(axis=0)
     y_max, x_max = coords.max(axis=0)
-    # Convert inclusive max to exclusive max.
     return int(x_min), int(y_min), int(x_max) + 1, int(y_max) + 1
+
+
+def extract_digit_bboxes(mask: np.ndarray, min_area: int = 10) -> List[Tuple[int, int, int, int]]:
+    """Return (x1,y1,x2,y2) for each individual digit contour, sorted left-to-right.
+
+    Used only for final evaluation ground truth — NOT for YOLO training labels.
+    """
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    boxes = []
+    for cnt in contours:
+        bx, by, bw, bh = cv2.boundingRect(cnt)
+        if bw * bh >= min_area:
+            boxes.append((bx, by, bx + bw, by + bh))
+    return sorted(boxes, key=lambda b: b[0])
 
 
 def xyxy_to_yolo_bbox(
@@ -143,25 +150,34 @@ def make_yolo_dataset(
         h, w = img.shape[:2]
 
         mask = _read_mask_grayscale(mask_path)
-        
-        # Find external contours to separate object instances.
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        if len(contours) == 0: return False
-        
+
+        # Apply dilation to merge nearby disjoint characters into a single global bounding box
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
+        dilated_mask = cv2.dilate(mask, kernel, iterations=1)
+
+        contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if len(contours) == 0:
+            return False
+
+        valid_boxes = []
+        for cnt in contours:
+            bx, by, bw, bh = cv2.boundingRect(cnt)
+            if bw * bh >= 10:  # Filter out tiny noisy boxes.
+                valid_boxes.append((bx, by, bw, bh))
+
+        # Since multiple digits now merge into a single bounding box sequence...
+        if len(valid_boxes) == 0:
+            return False
+
         shutil.copy2(image_path, dst_img_path)
         with open(dst_lbl_path, "w", encoding="utf-8", newline="") as f:
-            for cnt in contours:
-                x, y, w_box, h_box = cv2.boundingRect(cnt)
-                area = w_box * h_box
-                if area < 10: continue  # Filter out tiny noisy boxes.
-                
-                xc = (x + w_box / 2) / w
-                yc = (y + h_box / 2) / h
-                bw = w_box / w
-                bh = h_box / h
-                
-                f.write(f"0 {xc:.6f} {yc:.6f} {bw:.6f} {bh:.6f}\n")
+            for bx, by, bw, bh in valid_boxes:
+                xc = (bx + bw / 2) / w
+                yc = (by + bh / 2) / h
+                box_w = bw / w
+                box_h = bh / h
+                f.write(f"0 {xc:.6f} {yc:.6f} {box_w:.6f} {box_h:.6f}\n")
         return True
 
     # Clear previous conversions (only inside output folder).
@@ -184,11 +200,94 @@ def make_yolo_dataset(
         "path": yolo_out_root,
         "train": "images/train",
         "val": "images/val",
-        "names": ["digit"],
+        "names": ["number_sequence"],
     }
     with open(data_yaml_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(yaml_obj, f)
 
+    return data_yaml_path
+
+
+def make_digit_yolo_dataset(
+    samples: List[Dict[str, str]],
+    categories: List[str],
+    yolo_out_root: str,
+    split_ratio: float,
+    seed: int,
+    min_area: int = 10,
+) -> str:
+    """Create a YOLO dataset where every digit gets its own label box.
+
+    Each mask.png is scanned contour-by-contour. Images with exactly one digit
+    get one label line; images with N digits get N label lines. Images whose mask
+    yields zero valid contours are skipped entirely.
+
+    This dataset is used for the second-stage digit detector (applied to the
+    sharpened crops produced by the first YOLO).
+    """
+    import yaml
+
+    train_samples, val_samples = stratified_split(
+        samples, split_ratio=split_ratio, seed=seed, categories=categories
+    )
+
+    if os.path.exists(yolo_out_root):
+        shutil.rmtree(yolo_out_root)
+    for split in ("train", "val"):
+        ensure_dir(os.path.join(yolo_out_root, "images", split))
+        ensure_dir(os.path.join(yolo_out_root, "labels", split))
+
+    def process_one(split: str, sample: Dict[str, str]) -> int:
+        image_path = sample["image_path"]
+        mask_path = sample["mask_path"]
+        category = sample["category"]
+        idx = sample["sample_id"].split("/", 1)[1]
+        stem = f"{category}_{idx}"
+        dst_img = os.path.join(yolo_out_root, "images", split, f"{stem}.jpg")
+        dst_lbl = os.path.join(yolo_out_root, "labels", split, f"{stem}.txt")
+
+        img = cv2.imread(image_path, cv2.IMREAD_COLOR)
+        if img is None:
+            return 0
+        h, w = img.shape[:2]
+
+        mask = _read_mask_grayscale(mask_path)
+        digit_boxes = extract_digit_bboxes(mask, min_area=min_area)
+
+        # Skip images where the mask contains no valid digit regions.
+        if not digit_boxes:
+            return 0
+
+        shutil.copy2(image_path, dst_img)
+        with open(dst_lbl, "w", encoding="utf-8", newline="") as f:
+            for x1, y1, x2, y2 in digit_boxes:
+                xc = (x1 + x2) / 2 / w
+                yc = (y1 + y2) / 2 / h
+                bw_n = (x2 - x1) / w
+                bh_n = (y2 - y1) / h
+                f.write(f"0 {xc:.6f} {yc:.6f} {bw_n:.6f} {bh_n:.6f}\n")
+        return len(digit_boxes)
+
+    for split_name, split_samples in [("train", train_samples), ("val", val_samples)]:
+        kept = 0
+        total_digits = 0
+        for s in tqdm(split_samples, desc=f"Converting {split_name} (per-digit)", ncols=90):
+            n = process_one(split_name, s)
+            if n > 0:
+                kept += 1
+                total_digits += n
+        print(
+            f"Digit dataset [{split_name}]: {kept}/{len(split_samples)} images, "
+            f"{total_digits} digit labels "
+            f"({'avg ' + f'{total_digits/kept:.1f}' if kept else 'n/a'} digits/image)"
+        )
+
+    data_yaml_path = os.path.join(yolo_out_root, "data.yaml")
+    with open(data_yaml_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(
+            {"path": yolo_out_root, "train": "images/train", "val": "images/val", "names": ["digit"]},
+            f,
+        )
     return data_yaml_path
 
 
@@ -242,6 +341,26 @@ def yolo_predict_all(
                 "pred_conf": None, "inference_time_ms": dt_ms
             })
 
+    pd.DataFrame(rows).to_csv(output_csv, index=False)
+
+
+def save_digit_gt_boxes(samples: List[Dict[str, str]], output_csv: str, min_area: int = 10) -> None:
+    """Save per-digit ground-truth boxes extracted from masks.
+
+    Each row is one digit bbox. Used for final evaluation after step 4 (post-sharpening
+    digit detection), NOT for YOLO training.
+    """
+    rows: List[Dict[str, object]] = []
+    for s in tqdm(samples, desc="Extracting digit GT boxes from masks", ncols=90):
+        mask = _read_mask_grayscale(s["mask_path"])
+        for idx, (x1, y1, x2, y2) in enumerate(extract_digit_bboxes(mask, min_area=min_area)):
+            rows.append({
+                "sample_id": s["sample_id"],
+                "category": s["category"],
+                "image_path": s["image_path"],
+                "digit_idx": idx,
+                "gt_x1": x1, "gt_y1": y1, "gt_x2": x2, "gt_y2": y2,
+            })
     pd.DataFrame(rows).to_csv(output_csv, index=False)
 
 
@@ -304,6 +423,29 @@ def main() -> None:
         )
     else:
         data_yaml_path = conversion_yaml_path
+
+    # Build per-digit YOLO dataset (one label line per digit) for the second-stage detector.
+    digit_yolo_out_root = os.path.join(output_dir, "yolo_digit_dataset")
+    digit_conversion_yaml = os.path.join(digit_yolo_out_root, "data.yaml")
+    if args.overwrite_conversion or not os.path.exists(digit_conversion_yaml):
+        print("Creating per-digit YOLO dataset (one box per digit)...")
+        make_digit_yolo_dataset(
+            samples=samples,
+            categories=categories,
+            yolo_out_root=digit_yolo_out_root,
+            split_ratio=args.split_ratio,
+            seed=args.seed,
+        )
+    else:
+        print(f"Per-digit YOLO dataset already exists: {digit_yolo_out_root}")
+
+    # Save per-digit GT boxes as a CSV (used for final evaluation after step 4,
+    # NOT as YOLO training labels — those use a single union box per image).
+    digit_gt_csv = os.path.join(output_dir, "digit_gt_boxes.csv")
+    if args.overwrite_conversion or not os.path.exists(digit_gt_csv):
+        print("Extracting per-digit ground-truth boxes from masks...")
+        save_digit_gt_boxes(samples, digit_gt_csv)
+        print(f"Digit GT boxes saved to: {digit_gt_csv}")
 
     # Train YOLO.
     yolo_weights_dir = os.path.join(output_dir, "yolo_run")
