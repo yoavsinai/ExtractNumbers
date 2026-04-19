@@ -176,9 +176,13 @@ with torch.no_grad():
   - Traditional image processing: cubic upscaling, bilateral filtering, unsharp masking
   - Returns binary image processed with classical methods
 
+- `enhance_with_both(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, unsharp_strength=1.5)` → `np.ndarray`
+  - Real-ESRGAN upscaling combined with traditional unsharp masking
+  - Returns binary image processed with both methods
+
 - `compare_enhancement_methods(image, target_size=128, save_comparison=False, output_dir="outputs/enhancement_comparison")` → `dict`
-  - Compare all three enhancement methods on the same image
-  - Returns dictionary with results from Real-ESRGAN, no sharpening, and traditional methods
+  - Compare all enhancement methods on the same image
+  - Returns dictionary with results from Real-ESRGAN, no sharpening, traditional methods, and both
 
 - `preprocess_digit(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, return_intermediate=False)` → `Union[np.ndarray, Tuple[np.ndarray, dict]]`
   - Full preprocessing pipeline with intermediate steps access
@@ -198,7 +202,45 @@ with torch.no_grad():
 ```python
 from image_preprocessing.digit_preprocessor import (
     enhance_digit, sharpen_digit, enhance_without_sharpening, 
-    enhance_with_traditional_methods, compare_enhancement_methods
+    enhance_with_traditional_methods, enhance_with_both
+)
+
+# Read image
+img = cv2.imread('digit.png')
+
+# Method 1: AI Upscaling
+enhanced = enhance_digit(img)
+
+# Method 2: Traditional Filtering
+traditional = enhance_with_traditional_methods(img)
+
+# Method 3: Combined
+both = enhance_with_both(img)
+```
+
+---
+
+## evaluation/ - Performance Metrics & Testing
+
+### `evaluate_enhancement_accuracy.py`
+**Purpose:** Evaluate accuracy on isolated digits  
+**Description:** Tests and compares the performance of different image enhancement methods specifically on pre-cropped, isolated digit classification.
+
+**Usage:**
+```bash
+python src/evaluation/evaluate_enhancement_accuracy.py --max-samples 50
+```
+
+### `evaluate_segmentation_accuracy.py`
+**Purpose:** End-to-end pipeline evaluation  
+**Description:** Evaluates full extraction pipeline (segmentation + recognition) against ground-truth datasets, generating detailed Precision, Recall, and F1-Score reports per enhancement method.
+
+**Usage:**
+```bash
+python src/evaluation/evaluate_segmentation_accuracy.py --max-samples 50
+```
+
+---    enhance_with_traditional_methods, compare_enhancement_methods
 )
 import cv2
 

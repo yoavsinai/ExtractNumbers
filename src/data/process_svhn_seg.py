@@ -52,7 +52,9 @@ def get_bbox(f, idx):
         else:
             return [val[()][0][0]]
             
-    boxes = zip(get_attr('left'), get_attr('top'), get_attr('width'), get_attr('height'))
+    labels = get_attr('label')
+    labels = [0 if int(l) == 10 else int(l) for l in labels]
+    boxes = zip(get_attr('left'), get_attr('top'), get_attr('width'), get_attr('height'), labels)
     return list(boxes)
 
 def download_and_extract():
@@ -100,9 +102,10 @@ def process_svhn_masks():
             
             h, w = img.shape[:2]
             mask = np.zeros((h, w), dtype=np.uint8)
+            labels_to_save = []
             
             for box in bboxes:
-                left, top, width, height = box
+                left, top, width, height, label = box
                 left, top, width, height = int(left), int(top), int(width), int(height)
                 
                 # Shrink the box by 2 pixels on each edge to separate naturally touching digits
@@ -118,11 +121,14 @@ def process_svhn_masks():
                 bottom = max(top + 1, min(h, bottom))
                 
                 cv2.rectangle(mask, (left, top), (right, bottom), 255, -1)
+                labels_to_save.append(f"{left} {top} {right} {bottom} {label}")
                 
             sample_dir = os.path.join(DATA_PROCESSED, str(processed))
             ensure_dir(sample_dir)
             cv2.imwrite(os.path.join(sample_dir, "image.jpg"), img)
             cv2.imwrite(os.path.join(sample_dir, "mask.png"), mask)
+            with open(os.path.join(sample_dir, "labels.txt"), "w") as f_lbl:
+                f_lbl.write("\n".join(labels_to_save))
             processed += 1
 
 if __name__ == "__main__":

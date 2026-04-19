@@ -1,7 +1,11 @@
 """
 Enhanced Pipeline Comparison Script
 
-Runs the full extraction pipeline with different enhancement methods and compares results.
+This script serves as a comprehensive tool for comparing different enhancement methods 
+(Real-ESRGAN, No-Sharpen, Traditional, and Both) across the full extraction pipeline. 
+It runs the complete pipeline for each method, generates visual comparisons, and creates 
+a detailed report. It is intended to help developers visually and quantitatively determine 
+which enhancement technique yields the best bounding boxes and crop results.
 """
 
 import os
@@ -21,7 +25,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from image_preprocessing.digit_preprocessor import (
-    enhance_digit, enhance_without_sharpening, enhance_with_traditional_methods
+    enhance_digit, enhance_without_sharpening, enhance_with_traditional_methods, enhance_with_both
 )
 
 # Path configuration
@@ -308,7 +312,8 @@ def main():
     enhancement_methods = [
         ('realesrgan', lambda img: enhance_digit(img, upscale_factor=2.0)),
         ('no_sharpening', lambda img: enhance_without_sharpening(img)),
-        ('traditional', lambda img: enhance_with_traditional_methods(img))
+        ('traditional', lambda img: enhance_with_traditional_methods(img)),
+        ('both', lambda img: enhance_with_both(img))
     ]
 
     all_results = []

@@ -121,3 +121,33 @@ The pipeline script offers granular control over the process:
 Below is the complete demonstration of the extraction process, showing the transformation from raw input to finalized digit localization:
 
 ![Full Pipeline Progression](assets/full_pipeline_progression.png)
+
+---
+
+## Evaluation & Insights
+
+A dedicated evaluation suite (`src/evaluation/`) tests the extraction and classification accuracy of different image enhancement methods.
+
+We compared four preprocessing strategies before feeding the digits to the ResNet18 classifier:
+1. **Real-ESRGAN**: AI-powered super-resolution.
+2. **Traditional**: Classic cubic upscaling, bilateral filtering, and unsharp masking.
+3. **No-Sharpen**: Basic grayscale conversion and binarization.
+4. **Both**: Real-ESRGAN followed by traditional unsharp masking.
+
+### 1. Isolated Digit Classification Accuracy
+Tested on 500 pre-cropped, high-quality isolated digits:
+* **Real-ESRGAN**: **98.2%** 🏆
+* **Traditional**: 91.0%
+* **Both**: 91.0%
+* **No-Sharpen**: 89.6%
+
+### 2. Full Pipeline (Segmentation + Extraction + Classification)
+Tested on the complete end-to-end pipeline using the `natural` (SVHN) dataset (91 valid digits extracted from 50 images):
+* **Real-ESRGAN**: **54.95% Accuracy** (F1: 0.5368, Precision: 0.6707) 🏆
+* **No-Sharpen**: 49.45% Accuracy (F1: 0.4562, Precision: 0.5466)
+* **Traditional**: 47.25% Accuracy (F1: 0.4415, Precision: 0.5083)
+* **Both**: 47.25% Accuracy (F1: 0.4415, Precision: 0.5083)
+
+**Key Takeaways:**
+* The combination of **Both** (Real-ESRGAN + Traditional) yielded identical results to just the **Traditional** method. The binarization step likely overwrites the fine details produced by the AI upscaler.
+* **Real-ESRGAN** provides a significant boost (~10% improvement) in end-to-end precision for blurry real-world images (SVHN), making it the recommended preprocessing step for natural scenes.

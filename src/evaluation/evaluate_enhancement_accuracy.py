@@ -1,7 +1,16 @@
 """
-Evaluate Enhancement Methods Accuracy
+Evaluate Enhancement Methods Accuracy (Isolated Digits)
 
-Tests digit recognition accuracy on classification dataset using different enhancement methods.
+This script evaluates and compares the performance of different image enhancement
+methods (Real-ESRGAN, No-Sharpen, Traditional, and Both) specifically on isolated 
+digit recognition accuracy (using a classification dataset where digits are already cropped).
+
+Why keep both evaluation scripts?
+- This script (`evaluate_enhancement_accuracy.py`) isolates the classification model's 
+  performance from the bounding box detection step. It helps debug whether recognition 
+  errors are due to bad classification on specific enhancement methods, rather than bad crops.
+- The other script (`evaluate_segmentation_accuracy.py`) evaluates the full, end-to-end 
+  pipeline (segmentation + bounding box extraction + classification) on full datasets.
 """
 
 import os
@@ -20,9 +29,9 @@ from pathlib import Path
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(BASE_DIR, "src"))
 
-from digit_recognizer import build_digit_model, get_device
+from digit_recognizer.digit_recognizer import build_digit_model, get_device
 from image_preprocessing.digit_preprocessor import (
-    enhance_digit, enhance_without_sharpening, enhance_with_traditional_methods
+    enhance_digit, enhance_without_sharpening, enhance_with_traditional_methods, enhance_with_both
 )
 
 
@@ -75,6 +84,8 @@ def preprocess_image_for_model(image, enhancement_method=None):
         processed = enhance_without_sharpening(image, target_size=64)
     elif enhancement_method == 'traditional':
         processed = enhance_with_traditional_methods(image, target_size=64)
+    elif enhancement_method == 'both':
+        processed = enhance_with_both(image, target_size=64)
     else:
         # Default: basic preprocessing
         processed = enhance_without_sharpening(image, target_size=64)
@@ -114,7 +125,7 @@ def evaluate_model_on_enhancement_methods(model_path, data_dir, max_samples_per_
     print(f"✓ Using device: {device}")
 
     # Enhancement methods to test
-    methods = ['realesrgan', 'no_sharpening', 'traditional']
+    methods = ['realesrgan', 'no_sharpening', 'traditional', 'both']
 
     results = {}
 
@@ -210,21 +221,23 @@ def create_accuracy_comparison(results):
 
     # Per-class comparison
     print("\n📈 Per-Class Accuracy Comparison:")
-    print("Class | Real-ESRGAN | No-Sharpen | Traditional")
-    print("------|------------|------------|------------")
+    print("Class | Real-ESRGAN | No-Sharpen | Traditional | Both")
+    print("------|------------|------------|------------|------------")
 
     for i in range(10):
         realesrgan_acc = results['realesrgan']['class_accuracies'][i]
         no_sharp_acc = results['no_sharpening']['class_accuracies'][i]
         trad_acc = results['traditional']['class_accuracies'][i]
+        both_acc = results['both']['class_accuracies'][i]
 
         # Highlight best for each class
-        best_acc = max(realesrgan_acc, no_sharp_acc, trad_acc)
+        best_acc = max(realesrgan_acc, no_sharp_acc, trad_acc, both_acc)
         realesrgan_str = f"{realesrgan_acc:.3f}"
         no_sharp_str = f"{no_sharp_acc:.3f}"
         trad_str = f"{trad_acc:.3f}"
+        both_str = f"{both_acc:.3f}"
 
-        print(f"  {i}   | {realesrgan_str} | {no_sharp_str} | {trad_str}")
+        print(f"  {i}   | {realesrgan_str} | {no_sharp_str} | {trad_str} | {both_str}")
 
     # Save detailed results
     output_dir = os.path.join(BASE_DIR, "outputs", "accuracy_comparison")

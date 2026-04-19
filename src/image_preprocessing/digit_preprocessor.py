@@ -552,6 +552,54 @@ def compare_enhancement_methods(
     return results
 
 
+def enhance_with_both(
+    image: np.ndarray,
+    target_size: Optional[int] = None,
+    upscale_factor: float = 2.0,
+    bilateral_diameter: int = 9,
+    unsharp_strength: float = 1.5
+) -> np.ndarray:
+    """
+    Process digit image using both Real-ESRGAN upscaling and traditional sharpening.
+
+    Uses Real-ESRGAN upscaling, bilateral filtering, unsharp masking,
+    grayscale conversion, and Otsu thresholding.
+
+    Args:
+        image: Input digit image (numpy array, BGR or grayscale)
+        target_size: Optional target size to resize to after processing
+        upscale_factor: Factor to upscale image (default: 2.0)
+        bilateral_diameter: Bilateral filter diameter (default: 9)
+        unsharp_strength: Unsharp mask strength (default: 1.5)
+
+    Returns:
+        Binary image processed with both methods
+    """
+    if image is None or image.size == 0:
+        raise ValueError("Input image is empty or invalid")
+
+    # Upscale with Real-ESRGAN
+    upscaled = upscale_image(image, scale_factor=upscale_factor, use_realesrgan=True)
+
+    # Apply bilateral filter (denoise)
+    denoised = apply_bilateral_filter(upscaled, diameter=bilateral_diameter)
+
+    # Apply unsharp masking (sharpen)
+    sharpened = apply_unsharp_mask(denoised, strength=unsharp_strength)
+
+    # Convert to grayscale
+    grayscale = convert_to_grayscale(sharpened)
+
+    # Apply Otsu threshold
+    binary, _ = apply_otsu_threshold(grayscale)
+
+    # Optional: Resize to target size
+    if target_size is not None:
+        binary = cv2.resize(binary, (target_size, target_size), interpolation=cv2.INTER_CUBIC)
+
+    return binary
+
+
 if __name__ == "__main__":
     # Example usage
     import sys

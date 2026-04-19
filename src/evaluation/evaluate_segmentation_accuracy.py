@@ -1,8 +1,11 @@
 """
 Evaluate Enhancement Methods on Full Segmentation Datasets
 
-Tests digit recognition accuracy on all segmentation datasets using different enhancement methods.
-Extracts ground truth from masks and compares with model predictions.
+This script is designed to evaluate how different image enhancement methods (Real-ESRGAN, 
+No-Sharpen, Traditional, and Both) affect digit recognition accuracy across various 
+segmentation datasets (handwritten, synthetic, natural). It extracts ground truth from 
+masks, compares it with model predictions, and generates a comprehensive accuracy report 
+to validate the full preprocessing pipeline.
 """
 
 import os
@@ -20,9 +23,9 @@ from collections import defaultdict
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(BASE_DIR, "src"))
 
-from digit_recognizer import build_digit_model, get_device
+from digit_recognizer.digit_recognizer import build_digit_model, get_device
 from image_preprocessing.digit_preprocessor import (
-    enhance_digit, enhance_without_sharpening, enhance_with_traditional_methods
+    enhance_digit, enhance_without_sharpening, enhance_with_traditional_methods, enhance_with_both
 )
 from bounding_box.globalbb_detector import _read_mask_grayscale, extract_digit_bboxes
 from utils.metrics import calculate_metrics, print_metrics_report
@@ -45,6 +48,17 @@ def load_segmentation_samples(data_root, categories=None, max_samples_per_catego
         subdirs = [d for d in os.listdir(category_path)
                   if os.path.isdir(os.path.join(category_path, d))]
 
+        # Check if the dataset has labels.txt
+        has_labels = False
+        for s in subdirs[:5]:
+            if os.path.exists(os.path.join(category_path, s, 'labels.txt')):
+                has_labels = True
+                break
+                
+        if not has_labels:
+            print(f"Skipping category '{category}' because it lacks ground truth 'labels.txt'")
+            continue
+
         # Limit samples per category
         subdirs = subdirs[:max_samples_per_category]
 
@@ -52,36 +66,38 @@ def load_segmentation_samples(data_root, categories=None, max_samples_per_catego
             subdir_path = os.path.join(category_path, subdir)
             image_path = os.path.join(subdir_path, 'image.jpg')
             mask_path = os.path.join(subdir_path, 'mask.png')
+            labels_path = os.path.join(subdir_path, 'labels.txt')
 
-            if os.path.exists(image_path) and os.path.exists(mask_path):
+            if os.path.exists(image_path) and os.path.exists(mask_path) and os.path.exists(labels_path):
                 samples.append({
                     'category': category,
                     'sample_id': subdir,
                     'image_path': image_path,
-                    'mask_path': mask_path
+                    'mask_path': mask_path,
+                    'labels_path': labels_path
                 })
 
     print(f"Loaded {len(samples)} samples from {len(categories)} categories")
     return samples
 
 
-def extract_ground_truth_digits(mask_path):
-    """Extract individual digit bounding boxes and their positions from mask."""
-    mask = _read_mask_grayscale(mask_path)
-    bboxes = extract_digit_bboxes(mask)
-
-    # Sort by x-coordinate (left to right)
-    bboxes = sorted(bboxes, key=lambda b: b[0])
-
-    # Convert to digit sequence (we don't know the actual digits, just positions)
+def extract_ground_truth_labels(labels_path):
+    """Extract individual digit bounding boxes and true labels from labels.txt."""
     digits_info = []
-    for i, bbox in enumerate(bboxes):
-        digits_info.append({
-            'position': i,
-            'bbox': bbox,
-            'digit': None  # We'll determine this from predictions
-        })
-
+    with open(labels_path, 'r') as f:
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) >= 5:
+                # SVHN created labels as: left top right bottom label
+                l, t, r, b, label = map(int, parts[:5])
+                digits_info.append({
+                    'bbox': (l, t, r, b),
+                    'digit': label
+                })
+    # Sort by x-coordinate (left to right)
+    digits_info = sorted(digits_info, key=lambda d: d['bbox'][0])
+    for i, d in enumerate(digits_info):
+        d['position'] = i
     return digits_info
 
 
@@ -104,6 +120,8 @@ def preprocess_image_for_model(image, bbox, enhancement_method=None):
         processed = enhance_without_sharpening(crop, target_size=64)
     elif enhancement_method == 'traditional':
         processed = enhance_with_traditional_methods(crop, target_size=64)
+    elif enhancement_method == 'both':
+        processed = enhance_with_both(crop, target_size=64)
     else:
         # Default: basic preprocessing
         processed = enhance_without_sharpening(crop, target_size=64)
@@ -147,7 +165,7 @@ def evaluate_on_segmentation_datasets(model_path, data_root, max_samples_per_cat
     samples = load_segmentation_samples(data_root, max_samples_per_category=max_samples_per_category)
 
     # Enhancement methods to test
-    methods = ['realesrgan', 'no_sharpening', 'traditional']
+    methods = ['realesrgan', 'no_sharpening', 'traditional', 'both']
 
     results = {}
 
@@ -164,7 +182,7 @@ def evaluate_on_segmentation_datasets(model_path, data_root, max_samples_per_cat
         # Process each sample
         for sample in tqdm(samples, desc=f"{method} Evaluation"):
             image_path = sample['image_path']
-            mask_path = sample['mask_path']
+            labels_path = sample['labels_path']
             category = sample['category']
 
             # Load image
@@ -172,16 +190,17 @@ def evaluate_on_segmentation_datasets(model_path, data_root, max_samples_per_cat
             if image is None:
                 continue
 
-            # Extract ground truth digit positions
+            # Extract ground truth digit positions and labels
             try:
-                gt_digits = extract_ground_truth_digits(mask_path)
+                gt_digits = extract_ground_truth_labels(labels_path)
             except Exception as e:
-                print(f"Warning: Could not extract GT for {mask_path}: {e}")
+                print(f"Warning: Could not extract GT for {labels_path}: {e}")
                 continue
 
             # For each ground truth digit, make prediction
             for gt_digit in gt_digits:
                 bbox = gt_digit['bbox']
+                true_digit = gt_digit['digit']
 
                 # Preprocess the cropped digit
                 processed_tensor = preprocess_image_for_model(image, bbox, method)
@@ -197,17 +216,19 @@ def evaluate_on_segmentation_datasets(model_path, data_root, max_samples_per_cat
                     pred_digit = int(probs.argmax(dim=-1).item())
                     confidence = float(probs.max().item())
 
-                # Since we don't have ground truth digit labels in masks,
-                # we'll use a different evaluation approach
-                # For now, just count total predictions
+                # Track metrics
                 total_predictions += 1
                 category_results[category]['total'] += 1
+                if pred_digit == true_digit:
+                    correct_predictions += 1
+                    category_results[category]['correct'] += 1
 
                 all_predictions.append({
                     'category': category,
                     'sample_id': sample['sample_id'],
                     'method': method,
                     'pred_digit': pred_digit,
+                    'true_digit': true_digit,
                     'confidence': confidence,
                     'bbox': bbox
                 })
@@ -215,14 +236,17 @@ def evaluate_on_segmentation_datasets(model_path, data_root, max_samples_per_cat
         # Store results for this method
         results[method] = {
             'total_predictions': total_predictions,
+            'correct_predictions': correct_predictions,
             'category_results': dict(category_results),
             'all_predictions': all_predictions
         }
 
         print(f"   Total predictions: {total_predictions}")
+        print(f"   Accuracy: {correct_predictions / total_predictions if total_predictions > 0 else 0:.4f}")
         print("   Per-category breakdown:")
         for cat, stats in category_results.items():
-            print(f"     {cat}: {stats['total']} predictions")
+            acc = stats['correct'] / stats['total'] if stats['total'] > 0 else 0
+            print(f"     {cat}: {acc:.4f} ({stats['correct']}/{stats['total']})")
 
     return results, samples
 
@@ -231,45 +255,45 @@ def analyze_predictions(results, samples):
     """Analyze predictions and create comprehensive report."""
 
     print(f"\n{'='*70}")
-    print("📊 PREDICTION ANALYSIS REPORT")
+    print("📊 PREDICTION ANALYSIS REPORT (FULL PIPELINE)")
     print(f"{'='*70}")
 
     # Basic statistics
     print("\n🔢 Basic Statistics:")
     for method, data in results.items():
         total = data['total_predictions']
-        print(f"   {method.upper()}: {total} predictions")
+        correct = data['correct_predictions']
+        acc = correct / total if total > 0 else 0
+        print(f"   {method.upper()}: {total} predictions, Accuracy: {acc:.4f}")
 
     # Category breakdown
-    print("\n📂 Category Breakdown:")
+    print("\n📂 Accuracy by Category:")
     categories = ['handwritten', 'synthetic', 'natural']
-    print("Category     | Real-ESRGAN | No-Sharpen | Traditional")
-    print("-------------|------------|------------|------------")
+    print("Category     | Real-ESRGAN | No-Sharpen | Traditional | Both")
+    print("-------------|------------|------------|------------|------------")
 
     for cat in categories:
-        realesrgan_count = results['realesrgan']['category_results'].get(cat, {'total': 0})['total']
-        no_sharp_count = results['no_sharpening']['category_results'].get(cat, {'total': 0})['total']
-        trad_count = results['traditional']['category_results'].get(cat, {'total': 0})['total']
+        def get_acc(method):
+            stats = results[method]['category_results'].get(cat, {'total': 0, 'correct': 0})
+            if stats['total'] == 0: return "-"
+            return f"{stats['correct']/stats['total']:.4f}"
 
-        print(f"{cat:12} | {realesrgan_count:10} | {no_sharp_count:10} | {trad_count:10}")
+        realesrgan_acc = get_acc('realesrgan')
+        no_sharp_acc = get_acc('no_sharpening')
+        trad_acc = get_acc('traditional')
+        both_acc = get_acc('both')
 
-    # Digit distribution analysis
-    print("\n🔢 Digit Distribution Analysis:")
-    digit_counts = {}
-    for method in results.keys():
-        digit_counts[method] = defaultdict(int)
-        for pred in results[method]['all_predictions']:
-            digit_counts[method][pred['pred_digit']] += 1
+        print(f"{cat:12} | {realesrgan_acc:10} | {no_sharp_acc:10} | {trad_acc:10} | {both_acc:10}")
 
-    print("Digit | Real-ESRGAN | No-Sharpen | Traditional")
-    print("------|------------|------------|------------")
-
-    for digit in range(10):
-        realesrgan_count = digit_counts['realesrgan'][digit]
-        no_sharp_count = digit_counts['no_sharpening'][digit]
-        trad_count = digit_counts['traditional'][digit]
-
-        print(f"  {digit}   | {realesrgan_count:10} | {no_sharp_count:10} | {trad_count:10}")
+    # Metrics report per method
+    for method, data in results.items():
+        print(f"\n\n📈 Precision, Recall, F1-Score for {method.upper()}:")
+        y_true = [p['true_digit'] for p in data['all_predictions']]
+        y_pred = [p['pred_digit'] for p in data['all_predictions']]
+        if len(y_true) > 0:
+            print_metrics_report(y_true, y_pred, title=f"Metrics for {method.upper()}")
+        else:
+            print("   No predictions to evaluate.")
 
     # Confidence analysis
     print("\n📈 Confidence Analysis:")
@@ -284,50 +308,7 @@ def analyze_predictions(results, samples):
             print(f"     Average: {avg_conf:.4f}")
             print(f"     Min: {min_conf:.4f}")
             print(f"     Max: {max_conf:.4f}")
-    # Ground truth comparison (using mask-derived digit count)
-    print("\n🎯 Ground Truth Comparison (Digit Count Accuracy):")
-    gt_comparisons = []
 
-    for sample in samples:
-        mask_path = sample['mask_path']
-        try:
-            gt_digits = extract_ground_truth_digits(mask_path)
-            gt_count = len(gt_digits)
-
-            sample_predictions = {}
-            for method in results.keys():
-                method_preds = [p for p in results[method]['all_predictions']
-                              if p['sample_id'] == sample['sample_id'] and p['category'] == sample['category']]
-                sample_predictions[method] = len(method_preds)
-
-            gt_comparisons.append({
-                'sample_id': sample['sample_id'],
-                'category': sample['category'],
-                'ground_truth_count': gt_count,
-                'predictions': sample_predictions
-            })
-        except Exception as e:
-            continue
-
-    # Calculate digit count accuracy
-    count_accuracies = {}
-    for method in results.keys():
-        correct_counts = 0
-        total_samples = 0
-
-        for comp in gt_comparisons:
-            pred_count = comp['predictions'][method]
-            gt_count = comp['ground_truth_count']
-            if pred_count == gt_count:
-                correct_counts += 1
-            total_samples += 1
-
-        count_accuracies[method] = correct_counts / total_samples if total_samples > 0 else 0
-
-    print("Method       | Digit Count Accuracy")
-    print("-------------|-------------------")
-    for method, acc in count_accuracies.items():
-        print(f"{method.upper():12} | {acc:.4f}")
     return results
 
 
