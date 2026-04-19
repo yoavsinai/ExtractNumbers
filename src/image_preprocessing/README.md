@@ -61,6 +61,31 @@ binary = sharpen_digit(image, target_size=128)  # For classification
 - **Caching**: Weights are cached locally for subsequent runs (~200MB)
 - **Hardware Support**: Works on both CPU and GPU (GPU recommended for speed)
 
+## Key Functions
+
+- `enhance_digit(image, upscale_factor=2.0, bilateral_diameter=9)` → `np.ndarray`
+  - Enhance digit image for model input (upscale + denoise, no binarization)
+  - Returns enhanced image suitable for YOLO or other model training/inference
+
+- `sharpen_digit(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9)` → `np.ndarray`
+  - Complete sharpening pipeline for digit classification
+  - Returns binary image ready for classification models
+
+- `enhance_without_sharpening(image, target_size=None)` → `np.ndarray`
+  - Basic processing: only grayscale conversion and Otsu thresholding
+  - No enhancement or upscaling
+
+- `enhance_with_traditional_methods(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, unsharp_strength=1.5)` → `np.ndarray`
+  - Traditional image processing: cubic upscaling, bilateral filtering, unsharp masking
+  - Returns binary image processed with classical methods
+
+- `compare_enhancement_methods(image, target_size=128, save_comparison=False, output_dir="outputs/enhancement_comparison")` → `dict`
+  - Compare all three enhancement methods on the same image
+  - Returns dictionary with results from Real-ESRGAN, no sharpening, and traditional methods
+
+- `batch_sharpen_digits(images, **kwargs)` → `np.ndarray`
+  - Process multiple digit images at once, returns stacked array
+
 ## Usage Examples
 
 ### Single Image Preprocessing
@@ -92,6 +117,25 @@ from image_preprocessing.digit_preprocessor import batch_sharpen_digits
 digit_crops = [crop1, crop2, crop3]
 processed_batch = batch_sharpen_digits(digit_crops, target_size=128)
 # Returns: shape (N, 128, 128)
+```
+
+### Enhancement Method Comparison
+```python
+from image_preprocessing.digit_preprocessor import (
+    compare_enhancement_methods, enhance_without_sharpening, enhance_with_traditional_methods
+)
+
+# Compare all three methods on the same image
+results = compare_enhancement_methods(img, target_size=128, save_comparison=True)
+
+# Access individual results
+realesrgan_result = results['realesrgan']
+no_sharpening_result = results['no_sharpening']
+traditional_result = results['traditional']
+
+# Or use individual functions
+basic = enhance_without_sharpening(img, target_size=128)
+traditional = enhance_with_traditional_methods(img, target_size=128)
 ```
 
 ### Individual Pipeline Steps (Internal Use)

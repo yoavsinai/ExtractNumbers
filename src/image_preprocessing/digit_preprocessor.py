@@ -412,6 +412,146 @@ def batch_sharpen_digits(
     return batch_preprocess_digits(images, **kwargs)
 
 
+def enhance_without_sharpening(
+    image: np.ndarray,
+    target_size: Optional[int] = None
+) -> np.ndarray:
+    """
+    Process digit image without any sharpening/enhancement.
+    
+    Only converts to grayscale and applies Otsu thresholding.
+    
+    Args:
+        image: Input digit image (numpy array, BGR or grayscale)
+        target_size: Optional target size to resize to after processing
+    
+    Returns:
+        Binary image without enhancement
+    
+    Example:
+        >>> img = cv2.imread('digit.png')
+        >>> basic = enhance_without_sharpening(img, target_size=128)
+    """
+    if image is None or image.size == 0:
+        raise ValueError("Input image is empty or invalid")
+    
+    # Convert to grayscale
+    grayscale = convert_to_grayscale(image)
+    
+    # Apply Otsu threshold
+    binary, _ = apply_otsu_threshold(grayscale)
+    
+    # Optional: Resize to target size
+    if target_size is not None:
+        binary = cv2.resize(binary, (target_size, target_size), interpolation=cv2.INTER_CUBIC)
+    
+    return binary
+
+
+def enhance_with_traditional_methods(
+    image: np.ndarray,
+    target_size: Optional[int] = None,
+    upscale_factor: float = 2.0,
+    bilateral_diameter: int = 9,
+    unsharp_strength: float = 1.5
+) -> np.ndarray:
+    """
+    Process digit image using traditional image processing methods.
+    
+    Uses cubic interpolation upscaling, bilateral filtering, unsharp masking,
+    grayscale conversion, and Otsu thresholding.
+    
+    Args:
+        image: Input digit image (numpy array, BGR or grayscale)
+        target_size: Optional target size to resize to after processing
+        upscale_factor: Factor to upscale image (default: 2.0)
+        bilateral_diameter: Bilateral filter diameter (default: 9)
+        unsharp_strength: Unsharp mask strength (default: 1.5)
+    
+    Returns:
+        Binary image processed with traditional methods
+    
+    Example:
+        >>> img = cv2.imread('digit.png')
+        >>> traditional = enhance_with_traditional_methods(img, target_size=128)
+    """
+    if image is None or image.size == 0:
+        raise ValueError("Input image is empty or invalid")
+    
+    # Upscale with cubic interpolation
+    upscaled = upscale_image(image, scale_factor=upscale_factor, use_realesrgan=False)
+    
+    # Apply bilateral filter (denoise)
+    denoised = apply_bilateral_filter(upscaled, diameter=bilateral_diameter)
+    
+    # Apply unsharp masking (sharpen)
+    sharpened = apply_unsharp_mask(denoised, strength=unsharp_strength)
+    
+    # Convert to grayscale
+    grayscale = convert_to_grayscale(sharpened)
+    
+    # Apply Otsu threshold
+    binary, _ = apply_otsu_threshold(grayscale)
+    
+    # Optional: Resize to target size
+    if target_size is not None:
+        binary = cv2.resize(binary, (target_size, target_size), interpolation=cv2.INTER_CUBIC)
+    
+    return binary
+
+
+def compare_enhancement_methods(
+    image: np.ndarray,
+    target_size: int = 128,
+    save_comparison: bool = False,
+    output_dir: str = "outputs/enhancement_comparison"
+) -> dict:
+    """
+    Compare different image enhancement methods on the same input image.
+    
+    Args:
+        image: Input digit image
+        target_size: Target size for all outputs
+        save_comparison: Whether to save comparison images
+        output_dir: Directory to save comparison images
+    
+    Returns:
+        Dictionary with processed images from each method
+    
+    Methods compared:
+    - 'realesrgan': AI-powered enhancement with Real-ESRGAN
+    - 'no_sharpening': Basic processing without enhancement
+    - 'traditional': Traditional image processing methods
+    """
+    results = {}
+    
+    # Method 1: Real-ESRGAN enhancement
+    results['realesrgan'] = sharpen_digit(image, target_size=target_size)
+    
+    # Method 2: No sharpening
+    results['no_sharpening'] = enhance_without_sharpening(image, target_size=target_size)
+    
+    # Method 3: Traditional methods
+    results['traditional'] = enhance_with_traditional_methods(image, target_size=target_size)
+    
+    if save_comparison:
+        import os
+        os.makedirs(output_dir, exist_ok=True)
+        
+        for method, processed_img in results.items():
+            output_path = os.path.join(output_dir, f"{method}_result.png")
+            cv2.imwrite(output_path, processed_img)
+        
+        # Create side-by-side comparison
+        comparison = np.concatenate(list(results.values()), axis=1)
+        comparison_path = os.path.join(output_dir, "comparison_side_by_side.png")
+        cv2.imwrite(comparison_path, comparison)
+        
+        print(f"Comparison images saved to: {output_dir}")
+    
+    return results
+
+
 if __name__ == "__main__":
     # Example usage
     import sys

@@ -168,6 +168,18 @@ with torch.no_grad():
   - Complete sharpening pipeline for digit classification
   - Returns binary image ready for classification models
 
+- `enhance_without_sharpening(image, target_size=None)` → `np.ndarray`
+  - Basic processing: only grayscale conversion and Otsu thresholding
+  - No enhancement or upscaling
+
+- `enhance_with_traditional_methods(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, unsharp_strength=1.5)` → `np.ndarray`
+  - Traditional image processing: cubic upscaling, bilateral filtering, unsharp masking
+  - Returns binary image processed with classical methods
+
+- `compare_enhancement_methods(image, target_size=128, save_comparison=False, output_dir="outputs/enhancement_comparison")` → `dict`
+  - Compare all three enhancement methods on the same image
+  - Returns dictionary with results from Real-ESRGAN, no sharpening, and traditional methods
+
 - `preprocess_digit(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, return_intermediate=False)` → `Union[np.ndarray, Tuple[np.ndarray, dict]]`
   - Full preprocessing pipeline with intermediate steps access
   - Returns processed binary image or (image, intermediate_steps_dict) if return_intermediate=True
@@ -184,7 +196,10 @@ with torch.no_grad():
 
 **Usage Example:**
 ```python
-from image_preprocessing.digit_preprocessor import enhance_digit, sharpen_digit
+from image_preprocessing.digit_preprocessor import (
+    enhance_digit, sharpen_digit, enhance_without_sharpening, 
+    enhance_with_traditional_methods, compare_enhancement_methods
+)
 import cv2
 
 # For model training/inference (enhanced but not binary)
@@ -195,6 +210,16 @@ enhanced = enhance_digit(img, upscale_factor=2.0)
 # For digit classification (binary output)
 binary = sharpen_digit(img, target_size=128)
 # Use binary image for classification models
+
+# Compare different enhancement approaches
+results = compare_enhancement_methods(img, target_size=128, save_comparison=True)
+realesrgan_result = results['realesrgan']
+no_sharpening_result = results['no_sharpening']
+traditional_result = results['traditional']
+
+# Or use individual methods
+basic = enhance_without_sharpening(img, target_size=128)
+traditional = enhance_with_traditional_methods(img, target_size=128)
 
 # Full pipeline with intermediate steps
 final, steps = preprocess_digit(img, return_intermediate=True)
