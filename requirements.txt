@@ -23,6 +23,7 @@ datasets
 kagglehub
 paddlepaddle
 paddleocr
+realesrgan
 
 # Other
 reportlab

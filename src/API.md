@@ -149,60 +149,62 @@ with torch.no_grad():
 ## image_preprocessing/ - Digit Image Enhancement
 
 ### `digit_preprocessor.py`
-**Purpose:** Preprocessing module for digit image enhancement  
-**Description:** Provides efficient, reusable functions for improving cropped digit images through a multi-step pipeline optimized for classification. Handles upscaling, denoising, sharpening, grayscale conversion, and binary thresholding.
+**Purpose:** Preprocessing module for digit image enhancement using Real-ESRGAN  
+**Description:** Provides efficient, reusable functions for improving cropped digit images through a multi-step pipeline optimized for classification. Uses Real-ESRGAN for high-quality upscaling and enhancement, combined with traditional image processing techniques.
 
 **Pipeline Steps:**
-1. **Upscale** - Cubic interpolation for high-quality enlargement
+1. **Upscale with Real-ESRGAN** - AI-powered super-resolution for quality enlargement (2x or 4x)
 2. **Bilateral Filter** - Edge-preserving denoising
-3. **Unsharp Masking** - Sharpening for feature enhancement
-4. **Grayscale Conversion** - Convert to single channel
-5. **Otsu Thresholding** - Automatic binary conversion
+3. **Grayscale Conversion** - Convert to single channel
+4. **Otsu Thresholding** - Automatic binary conversion
 
 **Key Functions:**
 
-- `upscale_image(image, scale_factor=2.0, interpolation=cv2.INTER_CUBIC)` → `np.ndarray`
-  - Upscale image by factor using cubic interpolation
-  
-- `apply_bilateral_filter(image, diameter=9, sigma_color=75.0, sigma_space=75.0)` → `np.ndarray`
-  - Apply bilateral filter for noise reduction while preserving edges
-  
-- `apply_unsharp_mask(image, kernel_size=(5,5), sigma=1.0, strength=1.5, threshold=0)` → `np.ndarray`
-  - Sharpen image by enhancing edges and details
-  
-- `convert_to_grayscale(image)` → `np.ndarray`
-  - Convert BGR or already grayscale image to grayscale
-  
-- `apply_otsu_threshold(image, binary=True)` → `Tuple[np.ndarray, float]`
-  - Apply Otsu's automatic thresholding, returns (binary_image, threshold_value)
+- `enhance_digit(image, upscale_factor=2.0, bilateral_diameter=9)` → `np.ndarray`
+  - Enhance digit image for model input (upscale + denoise, no binarization)
+  - Returns enhanced image suitable for YOLO or other model training/inference
 
-- `preprocess_digit(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, unsharp_strength=1.5, return_intermediate=False)` → `Union[np.ndarray, Tuple[np.ndarray, dict]]`
-  - Complete preprocessing pipeline combining all steps
+- `sharpen_digit(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9)` → `np.ndarray`
+  - Complete sharpening pipeline for digit classification
+  - Returns binary image ready for classification models
+
+- `preprocess_digit(image, target_size=None, upscale_factor=2.0, bilateral_diameter=9, return_intermediate=False)` → `Union[np.ndarray, Tuple[np.ndarray, dict]]`
+  - Full preprocessing pipeline with intermediate steps access
   - Returns processed binary image or (image, intermediate_steps_dict) if return_intermediate=True
-  - intermediate_steps dict contains: 'original', 'upscaled', 'denoised', 'sharpened', 'grayscale', 'binary', 'threshold_value'
+  - intermediate_steps dict contains: 'original', 'upscaled', 'denoised', 'grayscale', 'binary', 'threshold_value'
 
-- `batch_preprocess_digits(images, **kwargs)` → `np.ndarray`
-  - Preprocess multiple digit images at once, returns stacked array
+- `batch_sharpen_digits(images, **kwargs)` → `np.ndarray`
+  - Process multiple digit images at once, returns stacked array
+
+**Legacy Functions (Internal Use):**
+- `upscale_image()` - Uses Real-ESRGAN when available
+- `apply_bilateral_filter()` - Bilateral filtering
+- `convert_to_grayscale()` - Grayscale conversion
+- `apply_otsu_threshold()` - Otsu thresholding
 
 **Usage Example:**
 ```python
-from image_preprocessing.digit_preprocessor import preprocess_digit, batch_preprocess_digits
+from image_preprocessing.digit_preprocessor import enhance_digit, sharpen_digit
 import cv2
 
-# Single image preprocessing
+# For model training/inference (enhanced but not binary)
 img = cv2.imread('digit_crop.png')
-processed = preprocess_digit(img, target_size=128, upscale_factor=2.0)
-# Returns: (128, 128) binary image
+enhanced = enhance_digit(img, upscale_factor=2.0)
+# Use enhanced image for YOLO training or other model input
 
-# With intermediate steps for debugging
+# For digit classification (binary output)
+binary = sharpen_digit(img, target_size=128)
+# Use binary image for classification models
+
+# Full pipeline with intermediate steps
 final, steps = preprocess_digit(img, return_intermediate=True)
 cv2.imshow("Original", steps['original'])
-cv2.imshow("Sharpened", steps['sharpened'])
-cv2.imshow("Binary", steps['binary'])
+cv2.imshow("Enhanced", steps['upscaled'])
+cv2.imshow("Binary", final)
 
 # Batch processing
 digit_crops = [crop1, crop2, crop3, ...]
-processed_batch = batch_preprocess_digits(digit_crops, target_size=128)
+processed_batch = batch_sharpen_digits(digit_crops, target_size=128)
 # Returns: shape (N, 128, 128)
 
 # Run as script with visualization
@@ -210,14 +212,13 @@ processed_batch = batch_preprocess_digits(digit_crops, target_size=128)
 ```
 
 **Parameters:**
-- `upscale_factor`: How much to enlarge the image (2.0 = 2x larger)
+- `upscale_factor`: How much to enlarge the image (2.0 = 2x larger, uses Real-ESRGAN if available)
 - `bilateral_diameter`: Size of bilateral filter kernel (larger = more smoothing)
-- `unsharp_strength`: Sharpening intensity (>1.0 = sharper)
 - `target_size`: Final image size (e.g., 128 for 128×128)
 - `return_intermediate`: If True, get all intermediate processing steps
 
 **Outputs:**
-- Binary preprocessed image (uint8, 0-255)
+- Enhanced or binary preprocessed image (uint8, 0-255)
 - Optional: Dictionary with all intermediate steps for analysis/debugging
 
 ---
@@ -243,13 +244,12 @@ python tests/test_preprocessing.py
 python src/test_files/test_preprocessing.py path/to/digit1.png path/to/digit2.png
 ```
 
-**Test Output:** Generates 6 PNG images showing each pipeline stage (saved to outputs/preprocessing_test_output/):
+**Test Output:** Generates 5 PNG images showing each pipeline stage (saved to outputs/preprocessing_test_output/):
 - `01_original.png` - Input image
-- `02_upscaled.png` - After upscaling (2x)
+- `02_upscaled.png` - After Real-ESRGAN upscaling (2x)
 - `03_denoised.png` - After bilateral filtering
-- `04_sharpened.png` - After unsharp masking
-- `05_grayscale.png` - After grayscale conversion
-- `06_binary.png` - Final binary image after Otsu thresholding
+- `04_grayscale.png` - After grayscale conversion
+- `05_binary.png` - Final binary image after Otsu thresholding
 
 **Python Usage:**
 ```python
@@ -307,7 +307,7 @@ python src/test_files/test_enhanced_pipeline.py path/to/image1.jpg path/to/image
 **Pipeline Flow:**
 1. Load YOLO model and detect digit bounding boxes
 2. Extract original digit crops from bounding boxes
-3. Apply preprocessing enhancement (upscale → denoise → sharpen → grayscale → threshold)
+3. Apply preprocessing enhancement (Real-ESRGAN upscale → bilateral denoise → grayscale → threshold)
 4. Create 3-panel visualization comparing all stages
 
 **Python Usage:**

@@ -1,84 +1,112 @@
 # ImagePreprocessing Module
 
-This module provides efficient, reusable functions for digit image enhancement and preprocessing. The preprocessing pipeline optimizes cropped digit images for classification through a 5-step enhancement process.
+This module provides efficient, reusable functions for digit image enhancement and preprocessing using **Real-ESRGAN** for AI-powered image enhancement. The preprocessing pipeline optimizes cropped digit images for classification through a 4-step enhancement process.
 
 ## Pipeline Overview
 
-The preprocessing pipeline transforms raw digit crops into optimized binary images suitable for classification:
+The preprocessing pipeline transforms raw digit crops into optimized images suitable for classification and detection:
 
-### Input → 5-Step Pipeline → Output
-**Raw digit crop** → Upscaling → Denoising → Sharpening → Grayscale → Binary → **Optimized digit**
+### Input → 4-Step Pipeline → Output
+**Raw digit crop** → AI Upscaling → Denoising → Grayscale → Binary → **Optimized digit**
 
 ## Enhancement Pipeline Steps
 
-### Step 1: Upscaling (2x)
-- **Method**: Cubic interpolation
-- **Purpose**: Increases resolution for better feature extraction
-- **Parameters**: Scale factor = 2.0, interpolation = cv2.INTER_CUBIC
+### Step 1: AI Upscaling with Real-ESRGAN (2x/4x)
+- **Method**: Real-ESRGAN super-resolution AI model
+- **Purpose**: Increases resolution with superior quality and detail enhancement
+- **Benefits**:
+  - Better than traditional cubic interpolation
+  - Automatic detail enhancement and noise reduction
+  - Consistent quality across different input types
+- **Parameters**: Scale factor = 2.0 (default), model = RealESRGAN_x2plus or x4plus
 
 ### Step 2: Bilateral Filtering
 - **Method**: Edge-preserving denoising
-- **Purpose**: Reduces noise while maintaining digit edges
+- **Purpose**: Additional noise reduction while maintaining digit edges
 - **Parameters**:
   - Diameter: 9 pixels
   - Sigma color: 75.0
   - Sigma space: 75.0
 
-### Step 3: Unsharp Masking
-- **Method**: Sharpening through edge enhancement
-- **Purpose**: Improves digit feature distinctiveness
-- **Parameters**:
-  - Kernel size: 5×5
-  - Sigma: 1.0
-  - Strength: 1.5 (sharpening intensity)
-
-### Step 4: Grayscale Conversion
+### Step 3: Grayscale Conversion
 - **Method**: Color to grayscale conversion
 - **Purpose**: Simplifies to single-channel representation
 - **Formula**: Standard RGB to grayscale: 0.299R + 0.587G + 0.114B
 
-### Step 5: Otsu Thresholding
+### Step 4: Otsu Thresholding
 - **Method**: Automatic binary conversion
 - **Purpose**: Creates clean black-and-white digit images
 - **Algorithm**: Otsu's method for optimal threshold selection
+
+## Real-ESRGAN Integration
+
+### What is Real-ESRGAN?
+Real-ESRGAN (Real-Time Super-Resolution Generative Adversarial Network) is a state-of-the-art AI model that provides:
+- **Superior Upscaling**: 2x and 4x magnification with better quality than traditional methods
+- **Detail Enhancement**: Automatically improves texture and edge sharpness
+- **Noise Reduction**: Intelligent denoising while preserving important features
+- **Real-Time Performance**: Optimized for fast processing on standard hardware
+
+### Usage in Digit Preprocessing
+```python
+# Automatic AI enhancement
+enhanced = enhance_digit(image, upscale_factor=2.0)  # For model training
+
+# Complete preprocessing pipeline
+binary = sharpen_digit(image, target_size=128)  # For classification
+```
+
+### Model Management
+- **Automatic Download**: Model weights are downloaded automatically on first use
+- **Caching**: Weights are cached locally for subsequent runs (~200MB)
+- **Hardware Support**: Works on both CPU and GPU (GPU recommended for speed)
 
 ## Usage Examples
 
 ### Single Image Preprocessing
 ```python
-from ImagePreprocessing.digit_preprocessor import preprocess_digit
+from image_preprocessing.digit_preprocessor import sharpen_digit, enhance_digit
 import cv2
 
 # Load digit crop
 img = cv2.imread('digit_crop.png')
 
-# Apply full preprocessing pipeline
-processed = preprocess_digit(img, target_size=64)
+# For classification (binary output)
+binary = sharpen_digit(img, target_size=64)
+
+# For model training/inference (enhanced but not binary)
+enhanced = enhance_digit(img, upscale_factor=2.0)
 
 # Get intermediate steps for debugging
 processed, steps = preprocess_digit(img, return_intermediate=True)
 cv2.imshow('Original', steps['original'])
-cv2.imshow('Enhanced', processed)
+cv2.imshow('Enhanced', steps['upscaled'])
+cv2.imshow('Binary', processed)
 ```
 
 ### Batch Processing
 ```python
-from ImagePreprocessing.digit_preprocessor import batch_preprocess_digits
+from image_preprocessing.digit_preprocessor import batch_sharpen_digits
 
 # Process multiple digit crops
 digit_crops = [crop1, crop2, crop3]
-processed_batch = batch_preprocess_digits(digit_crops, target_size=128)
+processed_batch = batch_sharpen_digits(digit_crops, target_size=128)
 # Returns: shape (N, 128, 128)
 ```
 
-### Individual Pipeline Steps
+### Individual Pipeline Steps (Internal Use)
 ```python
-from ImagePreprocessing.digit_preprocessor import (
-    upscale_image, apply_bilateral_filter, apply_unsharp_mask,
+from image_preprocessing.digit_preprocessor import (
+    upscale_image, apply_bilateral_filter,
     convert_to_grayscale, apply_otsu_threshold
 )
 
-# Apply individual steps
+# Apply individual steps (not recommended for end users)
+upscaled = upscale_image(img, scale_factor=2.0)  # Uses Real-ESRGAN if available
+denoised = apply_bilateral_filter(upscaled)
+gray = convert_to_grayscale(denoised)
+binary, threshold = apply_otsu_threshold(gray)
+```
 upscaled = upscale_image(img, scale_factor=2.0)
 denoised = apply_bilateral_filter(upscaled)
 sharpened = apply_unsharp_mask(denoised, strength=1.5)

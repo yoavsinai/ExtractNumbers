@@ -47,9 +47,8 @@ def test_preprocessing(image_path: str, output_dir: str = None) -> bool:
         cv2.imwrite(os.path.join(output_dir, "01_original.png"), steps['original'])
         cv2.imwrite(os.path.join(output_dir, "02_upscaled.png"), steps['upscaled'])
         cv2.imwrite(os.path.join(output_dir, "03_denoised.png"), steps['denoised'])
-        cv2.imwrite(os.path.join(output_dir, "04_sharpened.png"), steps['sharpened'])
-        cv2.imwrite(os.path.join(output_dir, "05_grayscale.png"), steps['grayscale'])
-        cv2.imwrite(os.path.join(output_dir, "06_binary.png"), processed)
+        cv2.imwrite(os.path.join(output_dir, "04_grayscale.png"), steps['grayscale'])
+        cv2.imwrite(os.path.join(output_dir, "05_binary.png"), processed)
         
         return True
     

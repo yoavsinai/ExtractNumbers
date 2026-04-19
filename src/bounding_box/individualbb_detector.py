@@ -32,7 +32,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 if BASE_DIR not in sys.path:
     sys.path.append(os.path.join(BASE_DIR, "src"))
 
-from image_preprocessing.digit_preprocessor import apply_unsharp_mask, upscale_image, apply_bilateral_filter
+from image_preprocessing.digit_preprocessor import enhance_digit
 from bounding_box.globalbb_detector import _read_mask_grayscale, bbox_from_mask, extract_digit_bboxes, ensure_dir, stratified_split
 
 def make_individualbb_dataset(
@@ -106,9 +106,7 @@ def make_individualbb_dataset(
             
         # 2. Sharpen the crop
         # We use color sharpening for YOLO feature extraction
-        sharpened = upscale_image(crop, scale_factor=2.0)
-        sharpened = apply_bilateral_filter(sharpened)
-        sharpened = apply_unsharp_mask(sharpened, strength=2.0)
+        sharpened = enhance_digit(crop, upscale_factor=2.0)
         
         # 3. Get individual digit boxes and translate
         digit_boxes = extract_digit_bboxes(mask, min_area=min_area)
