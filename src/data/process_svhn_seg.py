@@ -65,11 +65,13 @@ def download_and_extract():
         print("Verifying download integrity...")
         _verify_sha256(tar_path, SVHN_TEST_SHA256)
     test_dir = os.path.join(DATA_RAW, "test")
-    if not os.path.exists(test_dir):
-        print("Extracting...")
+    # בדיקה אם קיימת לפחות תמונה אחת. אם לא - חלץ הכל.
+    sample_img = os.path.join(test_dir, "1.png")
+    if not os.path.exists(sample_img):
+        print("Images not found. Extracting full archive (this may take a while)...")
         with tarfile.open(tar_path) as tar:
             tar.extractall(path=DATA_RAW)
-
+            
 def process_svhn_masks():
     print("Processing SVHN Format 1 into masks...")
     mat_file = os.path.join(DATA_RAW, "test", "digitStruct.mat")
@@ -102,11 +104,19 @@ def process_svhn_masks():
             for box in bboxes:
                 left, top, width, height = box
                 left, top, width, height = int(left), int(top), int(width), int(height)
+                
+                # Shrink the box by 2 pixels on each edge to separate naturally touching digits
+                left = left + 2
+                top = top + 1
+                right = left + width - 4
+                bottom = top + height - 2
+                
                 # Cap the bounding boxes
                 left = max(0, left)
                 top = max(0, top)
-                right = min(w, left+width)
-                bottom = min(h, top+height)
+                right = max(left + 1, min(w, right))
+                bottom = max(top + 1, min(h, bottom))
+                
                 cv2.rectangle(mask, (left, top), (right, bottom), 255, -1)
                 
             sample_dir = os.path.join(DATA_PROCESSED, str(processed))

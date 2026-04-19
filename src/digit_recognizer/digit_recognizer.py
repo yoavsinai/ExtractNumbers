@@ -144,13 +144,13 @@ def preprocess_crop(img: np.ndarray, bbox: tuple) -> torch.Tensor:
     return transform(pil_crop)
 
 
-def predict_on_image(model: nn.Module, image_path: str, yolo_df: pd.DataFrame, output_csv: str):
+def predict_on_image(model: nn.Module, image_path: str, globalbb_df: pd.DataFrame, output_csv: str):
     device = get_device()
     model = model.to(device)
     model.eval()
 
     rows = []
-    grouped = yolo_df.groupby("image_path")
+    grouped = globalbb_df.groupby("image_path")
     for image_path, group in grouped:
         if not os.path.exists(image_path):
             continue
@@ -219,8 +219,8 @@ def create_labeled_images(predictions_df: pd.DataFrame, output_dir: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Digit recognition for YOLO detections")
-    parser.add_argument("--yolo-csv", default=os.path.join("outputs", "bbox_comparison", "yolo_predictions.csv"), help="YOLO predictions CSV path")
+    parser = argparse.ArgumentParser(description="Digit recognition for GlobalBB detections")
+    parser.add_argument("--globalbb-csv", default=os.path.join("outputs", "bbox_comparison", "globalbb_predictions.csv"), help="GlobalBB predictions CSV path")
     parser.add_argument("--output-dir", default=os.path.join("outputs", "bbox_comparison"), help="Output directory")
     parser.add_argument("--model-path", default=os.path.join("outputs", "bbox_comparison", "digit_classifier.pth"), help="Saved digit classifier weights")
     parser.add_argument("--classification-data", default=os.path.join("data", "classification", "single_digits"), help="Digit label training data")
@@ -228,17 +228,17 @@ def main():
     parser.add_argument("--batch-size", type=int, default=64, help="Batch size for training")
     args = parser.parse_args()
 
-    yolo_csv = args.yolo_csv
+    globalbb_csv = args.globalbb_csv
     output_dir = args.output_dir
 
-    if not os.path.exists(yolo_csv):
-        raise FileNotFoundError(f"YOLO predictions file not found: {yolo_csv}")
+    if not os.path.exists(globalbb_csv):
+        raise FileNotFoundError(f"GlobalBB predictions file not found: {globalbb_csv}")
 
-    yolo_df = pd.read_csv(yolo_csv)
+    globalbb_df = pd.read_csv(globalbb_csv)
     model = load_classifier(args.model_path, args.classification_data, epochs=args.epochs, batch_size=args.batch_size)
 
     digit_csv = os.path.join(output_dir, "digit_predictions.csv")
-    predictions_df = predict_on_image(model, yolo_csv, yolo_df, digit_csv)
+    predictions_df = predict_on_image(model, globalbb_csv, globalbb_df, digit_csv)
     create_labeled_images(predictions_df, output_dir)
 
 
