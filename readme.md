@@ -44,8 +44,18 @@ After running the preparation script, your `data/` directory will be structured 
 Each segmentation sample is isolated in its own numeric folder (e.g., `data/segmentation/synthetic/0/image.jpg` and `data/segmentation/synthetic/0/mask.png`).
 
 
-## Extraction Pipeline
+***** יואב, להוסיף כאן הסבר על הדאטה ***_
 
+## Pipeline Workflow
+
+The extraction process is divided into four main stages, designed to handle noisy inputs and ensure high-accuracy digit recognition:
+
+1.  **Global Bounding-Box Detection (GlobalBB):** Utilizing a YOLO-based architecture to localize the entire number sequence within the noisy source image, filtering out irrelevant background elements.
+2.  **Super-Resolution & Sharpening:** Implementing Real-ESRGAN to enhance the visual quality of the cropped area. This stage recovers fine details and sharpens edges, which is critical for processing low-resolution or blurred inputs.
+3.  **Individual Digit Localization (IndividualBB):** Once the image is sharpened, the pipeline detects and segments each digit individually to prepare them for precise classification.
+4.  **Neural Character Recognition (Classification):** Each localized digit is passed through a ResNet18 classifier to identify its value. The final output is a reconstructed string representing the full number.
+
+---
 The project follows a multi-stage pipeline to ensure high accuracy in digit extraction and recognition:
 
 ![Process Pipeline](assets/diagram.PNG)
@@ -77,8 +87,14 @@ The GlobalBB detection model achieves high accuracy across various noise levels:
 * **Synthetic**: 75.41%
 
 ---
+## Stage 2: Image Sharpening (Real-ESRGAN)
 
-### Stage 2: Individual Digit Detection (IndividualBB)
+This stage focuses on improving the signal-to-noise ratio of the detected number sequence. By applying Generative Adversarial Networks (GANs) for super-resolution, we ensure that the subsequent classification model receives clear, high-contrast inputs.
+
+***** מתי, נא להוסיף כאן הסבר ודוגמאות של תמונות לפני ואחרי החידוד ***_
+
+---
+### Stage 3: Individual Digit Detection (IndividualBB)
 
 **How it works:** This stage focuses on isolation and precision. We utilize a second YOLOv8 model trained specifically on **sharpened crops** of the number sequences detected in Stage 1. By upscaling and applying unsharp masking, the model can more accurately distinguish between tightly packed or overlapping digits.
 
@@ -98,9 +114,15 @@ The IndividualBB model is trained to detect a single class ("digit") across all 
 * **Precision**: 88.54%
 * **Recall**: 94.09%
 
-
 ---
 
+## Stage 4: Digit Classification (ResNet18)
+
+In this final phase, we utilize the ResNet18 architecture, known for its effectiveness in image recognition tasks through residual learning. The model classifies each individual cropped digit into one of the ten categories (0-9).
+
+***** מתי/יואב, נא להוסיף כאן הסבר ודוגמאות על מודל הסיווג (ניתן להעביר לכאן הסברים רלוונטיים מסוף המסמך) ***_
+
+---
 ### Full Automated Extraction Process
 
 For a seamless experience, the entire multi-stage flow (Detection → Sharpening → Individual Localization) can be executed via a single command. The script handles model synchronization and dataset handoffs automatically.
@@ -116,14 +138,18 @@ The pipeline script offers granular control over the process:
 * **`--force-train`**: Clears previous runs and forces a fresh training cycle for both GlobalBB and IndividualBB.
 * **`--analyze-only`**: Skips the heavy detection and training phases entirely, generating reports from previous results.
 * **`--viz-only`**: Quickly regenerates the 4-panel progression visualization using existing predictions.
-
-#### **Pipeline Progression Visualization**
-Below is the complete demonstration of the extraction process, showing the transformation from raw input to finalized digit localization:
-
-![Full Pipeline Progression](assets/full_pipeline_progression.png)
-
 ---
+## Project Results
 
+***** יואב, נא להוסיף כאן את תוצאות התהליך ***_
+
+***** נא להוסיף תמונה מסודרת המציגה את כל שלבי התהליך עבור 3 סוגי הדאטה (Pipeline Visualization): ***_
+`Input Image -> Global BB -> Sharpened Image -> Individual BB -> Final Classification Output`
+
+
+----------------------------------------------------------------------
+מה שכאן צריך למחוק או לשים בחלק הרלוונטי בתהליך.
+אז מתי כשאתה עורך אם השתמשת תעיף ואם לא צריך גם תעיף רק תעיף
 ## Evaluation & Insights
 
 A dedicated evaluation suite (`src/evaluation/`) tests the extraction and classification accuracy of different image enhancement methods.
