@@ -126,12 +126,7 @@ The pipeline script offers granular control over the process:
 ---
 ## Project Results
 
-***** יואב, נא להוסיף כאן את תוצאות התהליך ***_
-
-***** נא להוסיף תמונה מסודרת המציגה את כל שלבי התהליך עבור 3 סוגי הדאטה (Pipeline Visualization): ***_
-`Input Image -> Global BB -> Sharpened Image -> Individual BB -> Final Classification Output`
-
-
+![Full Pipeline Dashboard](assets/full_pipeline_progression.png)
 ----------------------------------------------------------------------
 מה שכאן צריך למחוק או לשים בחלק הרלוונטי בתהליך.
 אז מתי כשאתה עורך אם השתמשת תעיף ואם לא צריך גם תעיף רק תעיף
@@ -180,7 +175,6 @@ Tested on the complete end-to-end flow using 500 random samples from the full da
 #### Pipeline Evaluation Dashboard
 Below is a visual breakdown of successes and failures across the 4-stage pipeline, including IoU metrics and positional digit accuracy:
 
-![Full Pipeline Dashboard](assets/full_pipeline_dashboard.png)
 
 **Key Takeaways:**
 * **Sequence vs. Digit Accuracy**: While getting the *entire* number sequence correct is challenging (especially in Handwritten samples), the **Mean Digit Accuracy** remains high (~89%), meaning the pipeline correctly identifies almost 9 out of 10 characters in context.
