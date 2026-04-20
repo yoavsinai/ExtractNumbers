@@ -15,7 +15,7 @@ src_dir = os.path.join(root_dir, 'src')
 sys.path.append(src_dir)
 
 from full_pipelines.single_photo_pipeline import load_yolo_model, run_yolo_on_image
-from image_preprocessing.digit_preprocessor import preprocess_digit
+from image_preprocessing.digit_preprocessor import sharpen_digit
 from utils.metrics import print_metrics_report
 
 def visualize_enhanced_pipeline(image_path: str, output_dir: str = None, file_index: int = 0):
@@ -50,7 +50,7 @@ def visualize_enhanced_pipeline(image_path: str, output_dir: str = None, file_in
             crop = img[y1:y2, x1:x2]
             if crop.size == 0: continue
             original_crops.append(crop)
-            enhanced = preprocess_digit(crop, target_size=64)
+            enhanced = sharpen_digit(crop, target_size=64)
             enhanced_crops.append(enhanced)
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))

@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^python -c \"from src\\.bounding_box\\.individualbb_detector import enhance_digit; from src\\.full_pipelines\\.run_full_enhanced_flow import enhance_digit; print\\('✓ Dependent imports successful'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

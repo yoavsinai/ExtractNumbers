@@ -13,7 +13,7 @@ from tqdm import tqdm
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(BASE_DIR, "src"))
 
-from image_preprocessing.digit_preprocessor import preprocess_digit, upscale_image, apply_bilateral_filter, apply_unsharp_mask
+from image_preprocessing.digit_preprocessor import enhance_digit
 
 # Path configuration
 BOUNDING_BOX_SRC = os.path.join(BASE_DIR, "src", "bounding_box")
@@ -188,9 +188,7 @@ def main():
         if crop.size == 0: continue
 
         # 1. Enhancement (Sharpening)
-        sharp = upscale_image(crop, scale_factor=2.0)
-        sharp = apply_bilateral_filter(sharp)
-        sharp = apply_unsharp_mask(sharp, strength=2.0)
+        sharp = enhance_digit(crop, upscale_factor=2.0)
         
         # Save sharpened crop to disk
         sample_name = os.path.splitext(os.path.basename(img_path))[0]
