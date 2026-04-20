@@ -7,7 +7,6 @@ from tqdm import tqdm
 from PIL import Image
 
 def prepare(output_base_dir, limit=None):
-    print("--- Preparing Race Numbers Dataset ---")
     raw_path = kagglehub.dataset_download("trainingdatapro/ocr-race-numbers")
     
     xml_file = os.path.join(raw_path, "annotations.xml")

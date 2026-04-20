@@ -110,9 +110,9 @@ python "src/bounding_box/individualbb_detector.py" --train-only --epochs 20
 
 #### **Evaluation Results (Stage 2)**
 The IndividualBB model is trained to detect a single class ("digit") across all sharpened crops. The current model achieves high precision in isolating individual digits:
-* **Overall mAP50**: 92.86%
-* **Precision**: 88.54%
-* **Recall**: 94.09%
+* **Overall mAP50**: 99.27%
+* **Precision**: 98.45%
+* **Recall**: 98.22%
 
 ---
 

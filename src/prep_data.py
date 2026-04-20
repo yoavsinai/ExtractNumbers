@@ -48,9 +48,6 @@ def main():
     if args.clean:
         _safe_rmtree(output_dir, base_dir, "digits_data")
 
-    print("\n=== Digit Extraction Data Pipeline ===")
-    print(f"Target: {output_dir}\n")
-    
     os.makedirs(output_dir, exist_ok=True)
 
     if "svhn" in args.datasets:

@@ -33,7 +33,6 @@ def parse_digit_struct(mat_file, limit=None):
     return data
 
 def prepare(output_base_dir, limit=None):
-    print("--- Preparing SVHN Dataset ---")
     raw_path = kagglehub.dataset_download("stanfordu/street-view-house-numbers")
     
     mat_file = os.path.join(raw_path, "train_digitStruct.mat")

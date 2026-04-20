@@ -9,7 +9,6 @@ except ImportError:
     import augmentations
 
 def process_all(base_dir, prob=0.3):
-    print(f"\n--- Applying High-Level Augmentations (prob={prob}) ---")
     data_dir = os.path.join(base_dir, "data", "digits_data")
     if not os.path.exists(data_dir):
         print("Data directory not found. Skipping augmentations.")

@@ -14,6 +14,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from image_preprocessing.digit_preprocessor import enhance_digit
+from utils.data_utils import iter_new_samples, get_gt_from_anno
 
 # Path configuration
 BOUNDING_BOX_SRC = os.path.join(BASE_DIR, "src", "bounding_box")
@@ -25,6 +26,7 @@ BEST_GLOBAL_PATH = os.path.join(OUTPUT_DIR, "globalbb_run", "weights", "best.pt"
 BEST_INDIVIDUAL_PATH = os.path.join(OUTPUT_DIR, "individualbb_run", "weights", "best.pt")
 SHARPENED_DIR = os.path.join(OUTPUT_DIR, "sharpened_crops")
 PROG_IMAGE_PATH = os.path.join(OUTPUT_DIR, "full_pipeline_progression.png")
+INDIVIDUAL_PREDICTIONS_CSV = os.path.join(OUTPUT_DIR, "individualbb_predictions.csv")
 
 def run_python_script(script_path, args=[], capture=True):
     """Run a Python script. If capture=True, output is hidden until completion."""
@@ -45,6 +47,7 @@ def main():
     parser = argparse.ArgumentParser(description="Full Enhanced Extraction Pipeline (Stage 1 + Sharpening + Stage 4 Individual Detection)")
     parser.add_argument("--analyze-only", action="store_true", help="Skip detection if predictions already exist.")
     parser.add_argument("--force-train", action="store_true", help="Force retraining of models.")
+    parser.add_argument("--force-inference", action="store_true", help="Force re-running of all inference stages.")
     parser.add_argument("--viz-only", action="store_true", help="Just regenerate the progression visualization using 3 random samples.")
     parser.add_argument("--epochs", type=int, default=20)
     args = parser.parse_args()
@@ -55,10 +58,6 @@ def main():
     if args.viz_only:
         print("=> --viz-only enabled. Skipping Stage 1-3 checks and jumping to fresh visualization.")
     else:
-        print("=== Step 1: Global Bounding Box Detection (GlobalBB) ===")
-        print("Goal: Detect the entire number sequence as a single entity (GlobalBB).")
-        
-        # Check if we can skip the heavy detection logic
         predictions_exist = os.path.exists(PREDICTIONS_CSV)
         
         if args.analyze_only and predictions_exist:
@@ -71,37 +70,31 @@ def main():
             detector_args = ["--output-dir", OUTPUT_DIR, "--epochs", str(args.epochs)]
             if skip_train_global:
                 detector_args.append("--skip-train")
-                print("=> Found existing GlobalBB weights. Running inference only.")
+                if not args.force_inference:
+                   detector_args.append("--skip-train") # This is redundant but safety for next line
+                print("=> Found existing GlobalBB weights. Running inference (unless cached)...")
             else:
                 print("=> No GlobalBB weights found or force-train enabled. Starting training...")
 
-            if not run_python_script(detector_script, detector_args):
+            if not run_python_script(detector_script, detector_args, capture=False):
                 print("Failed at Stage 1 detection.")
                 sys.exit(1)
 
-        # Generate the Label Preview diagnostic
-        print("\nGenerating label preview (diagnostic)...")
-        from bounding_box.globalbb_detector import iter_samples, _read_mask_grayscale
-        categories = ["natural", "synthetic", "handwritten"]
-        dataset_root = os.path.join(BASE_DIR, "data", "segmentation")
-        all_samples = iter_samples(dataset_root, categories)
+        dataset_root = os.path.join(BASE_DIR, "data", "digits_data")
+        all_samples = iter_new_samples(dataset_root)
         
         preview_grid = []
-        category_counts = {cat: 0 for cat in categories}
-        for s in all_samples:
+        category_counts = {} # Dynamic counting
+        for s in tqdm(all_samples, desc="Generating label preview"):
             cat = s["category"]
-            if category_counts[cat] < 3:
+            if category_counts.get(cat, 0) < 3:
                 img = cv2.imread(s["image_path"])
-                mask = _read_mask_grayscale(s["mask_path"])
-                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
-                dilated = cv2.dilate(mask, kernel, iterations=1)
-                contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for cnt in contours:
-                    bx, by, bw, bh = cv2.boundingRect(cnt)
-                    cv2.rectangle(img, (bx, by), (bx+bw, by+bh), (0, 255, 0), 2)
+                global_boxes, _ = get_gt_from_anno(s["anno_path"])
+                for x1, y1, x2, y2 in global_boxes:
+                    cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
                 cv2.putText(img, cat, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
                 preview_grid.append(img)
-                category_counts[cat] += 1
+                category_counts[cat] = category_counts.get(cat, 0) + 1
         
         if preview_grid:
             fig, axes = plt.subplots(3, 3, figsize=(10, 10))
@@ -115,9 +108,6 @@ def main():
             plt.close()
             print(f"=> Saved label preview to: {preview_path}")
 
-        print("\n=== Step 2: Image Enhancement (Sharpening) ===")
-        print("Goal: Apply upscaling and unsharp masking to prepare the dataset for individual digit detection.")
-        
         indiv_script = os.path.join(BOUNDING_BOX_SRC, "individualbb_detector.py")
         
         # Check if we need to regenerate the sharpened dataset
@@ -133,9 +123,6 @@ def main():
                 print("Failed at Stage 2 Image Enhancement.")
                 sys.exit(1)
 
-        print("\n=== Step 3: Individual Digit Detection (IndividualBB) ===")
-        print("Explanation: This stage trains/loads a second YOLO model using the sharpened crops from Step 2.")
-        
         # Check if IndividualBB weights exist
         skip_train_indiv = os.path.exists(BEST_INDIVIDUAL_PATH) and not args.force_train
         
@@ -152,10 +139,6 @@ def main():
             sys.exit(1)
 
     # Load Stage 1 predictions
-    if not os.path.exists(PREDICTIONS_CSV):
-        print(f"Error: Predictions file not found at {PREDICTIONS_CSV}")
-        sys.exit(1)
-    
     df = pd.read_csv(PREDICTIONS_CSV)
     df_valid = df.dropna(subset=['pred_x1'])
     print(f"\n=> Loaded {len(df)} Stage 1 records ({len(df_valid)} valid detections).")
@@ -164,58 +147,99 @@ def main():
     from ultralytics import YOLO
     indiv_model = YOLO(BEST_INDIVIDUAL_PATH)
 
-    print(f"\n=== Step 4: Batch Processing & Enhancement ===")
-    print(f"Goal: Cropping, Sharpening, and Individual Detection for ALL {len(df_valid)} images.")
-    
-    # We will store results for visualization separately
-    viz_samples = []
-    categories = ['handwritten', 'synthetic', 'natural']
-    
-    # Process detections - Shuffle for truly random visualization samples
-    shuffled_df = df_valid.sample(frac=1).reset_index(drop=True)
-    
-    print(f"\n=> Processing images (Early exit enabled for --viz-only)")
-    for _, row in tqdm(shuffled_df.iterrows(), total=len(shuffled_df), desc="Sharpening & Detecting"):
-        img_path = row['image_path']
-        cat = row['category']
-        img = cv2.imread(img_path)
-        if img is None: continue
+    # Cache check for Stage 4
+    if os.path.exists(INDIVIDUAL_PREDICTIONS_CSV) and not args.force_inference and not args.force_train:
+        print(f"=> Found existing IndividualBB predictions at {INDIVIDUAL_PREDICTIONS_CSV}. Loading...")
+        df_indiv = pd.read_csv(INDIVIDUAL_PREDICTIONS_CSV)
         
-        x1, y1, x2, y2 = int(row['pred_x1']), int(row['pred_y1']), int(row['pred_x2']), int(row['pred_y2'])
-        h, w = img.shape[:2]
-        x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
-        crop = img[y1:y2, x1:x2]
-        if crop.size == 0: continue
+        # Pick 3 random samples for visualization from the cached results
+        viz_samples = []
+        for cat in ['race_numbers', 'handwritten', 'svhn']:
+             cat_rows = df_indiv[df_indiv['category'] == cat]
+             if not cat_rows.empty:
+                 row = cat_rows.sample(1).iloc[0]
+                 img = cv2.imread(row['image_path'])
+                 
+                 # Reconstruct sharpened crop (or load it)
+                 x1, y1, x2, y2 = int(row['pred_x1_global']), int(row['pred_y1_global']), int(row['pred_x2_global']), int(row['pred_y2_global'])
+                 crop = img[y1:y2, x1:x2]
+                 sharp = enhance_digit(crop, upscale_factor=2.0)
+                 
+                 # Parse individual boxes from string format if needed or handle row columns
+                 # For now, let's just use the logic to reconstruct from the loop if we don't store boxes in nested format
+                 # To keep it simple, if user wants viz, they might need to run inference or we store boxes.
+                 # Let's actually run a mini-loop for viz samples if cached.
+                 
+                 # Re-detect just for the 3 viz samples to keep code clean
+                 results = indiv_model.predict(source=sharp, imgsz=256, verbose=False)
+                 indiv_preds = []
+                 if results and len(results[0].boxes) > 0:
+                     indiv_preds = results[0].boxes.xyxy.detach().cpu().numpy()
 
-        # 1. Enhancement (Sharpening)
-        sharp = enhance_digit(crop, upscale_factor=2.0)
+                 viz_samples.append({
+                    'cat': cat,
+                    'original': img,
+                    'crop_coords': (x1, y1, x2, y2),
+                    'sharpened': sharp,
+                    'indiv_preds': indiv_preds,
+                    'sample_info': row
+                 })
+    else:
+        # Process detections - Shuffle for truly random visualization samples
+        shuffled_df = df_valid.sample(frac=1).reset_index(drop=True)
         
-        # Save sharpened crop to disk
-        sample_name = os.path.splitext(os.path.basename(img_path))[0]
-        crop_filename = f"{cat}_{sample_name}_sharp.jpg"
-        cv2.imwrite(os.path.join(SHARPENED_DIR, crop_filename), sharp)
+        viz_samples = []
+        all_indiv_results = []
         
-        # 2. Individual Detection
-        results = indiv_model.predict(source=sharp, imgsz=256, verbose=False)
-        indiv_preds = []
-        if results and len(results[0].boxes) > 0:
-            indiv_preds = results[0].boxes.xyxy.detach().cpu().numpy()
+        print(f"\n=> Processing Individual Digit Detection (Stage 4)...")
+        for _, row in tqdm(shuffled_df.iterrows(), total=len(shuffled_df), desc="Predicting Digits"):
+            img_path = row['image_path']
+            cat = row['category']
+            img = cv2.imread(img_path)
+            if img is None: continue
+            
+            x1, y1, x2, y2 = int(row['pred_x1']), int(row['pred_y1']), int(row['pred_x2']), int(row['pred_y2'])
+            h, w = img.shape[:2]
+            x1, y1, x2, y2 = max(0, x1), max(0, y1), min(w, x2), min(h, y2)
+            crop = img[y1:y2, x1:x2]
+            if crop.size == 0: continue
 
-        # Capture a few random samples for the final summary image
-        if len(viz_samples) < 3 and cat not in [v['cat'] for v in viz_samples]:
-             viz_samples.append({
-                'cat': cat,
-                'original': img,
-                'crop_coords': (x1, y1, x2, y2),
-                'sharpened': sharp,
-                'indiv_preds': indiv_preds,
-                'sample_info': row
-             })
-             
-        # Optimization: Stop early if we only want visualization and have enough samples
-        if args.viz_only and len(viz_samples) >= 3:
-            print("\n=> Collected 3 random samples for visualization. Exiting early.")
-            break
+            # 1. Enhancement (Sharpening)
+            sharp = enhance_digit(crop, upscale_factor=2.0)
+            
+            # 2. Individual Detection
+            results = indiv_model.predict(source=sharp, imgsz=256, verbose=False)
+            indiv_preds = []
+            if results and len(results[0].boxes) > 0:
+                indiv_preds = results[0].boxes.xyxy.detach().cpu().numpy()
+
+            # Store result
+            res_entry = row.to_dict()
+            res_entry.update({
+                'pred_x1_global': x1, 'pred_y1_global': y1, 'pred_x2_global': x2, 'pred_y2_global': y2,
+                'num_digits': len(indiv_preds)
+            })
+            all_indiv_results.append(res_entry)
+
+            # Capture a few random samples for the final summary image
+            if len(viz_samples) < 3 and cat not in [v['cat'] for v in viz_samples]:
+                 viz_samples.append({
+                    'cat': cat,
+                    'original': img,
+                    'crop_coords': (x1, y1, x2, y2),
+                    'sharpened': sharp,
+                    'indiv_preds': indiv_preds,
+                    'sample_info': row
+                 })
+                 
+            # Optimization: Stop early if we only want visualization and have enough samples
+            if args.viz_only and len(viz_samples) >= 3:
+                print("\n=> Collected 3 random samples for visualization. Exiting early.")
+                break
+        
+        if not args.viz_only:
+            pd.DataFrame(all_indiv_results).to_csv(INDIVIDUAL_PREDICTIONS_CSV, index=False)
+            print(f"=> Stage 4 predictions saved to {INDIVIDUAL_PREDICTIONS_CSV}")
 
     print(f"\n=== Rendering Pipeline Progression Visualization ===")
     
@@ -236,18 +260,12 @@ def main():
         x1, y1, x2, y2 = res['crop_coords']
         axes[i, 1].add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='red', linewidth=3))
         
-        # GT (Green) - Match Sanity Check logic (multiple boxes if separated)
-        mask_path = sample['image_path'].replace("image.jpg", "mask.png")
-        if os.path.exists(mask_path):
-            from bounding_box.globalbb_detector import _read_mask_grayscale
-            mask = _read_mask_grayscale(mask_path)
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
-            dilated = cv2.dilate(mask, kernel, iterations=1)
-            contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            for cnt in contours:
-                bx, by, bw, bh = cv2.boundingRect(cnt)
-                if bw * bh > 10:
-                    axes[i, 1].add_patch(plt.Rectangle((bx, by), bw, bh, fill=False, edgecolor='lime', linewidth=2, linestyle='--'))
+        # GT (Green) from annotations.json
+        anno_path = sample['image_path'].replace("original.png", "annotations.json")
+        if os.path.exists(anno_path):
+            global_boxes, _ = get_gt_from_anno(anno_path)
+            for x1, y1, x2, y2 in global_boxes:
+                axes[i, 1].add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='lime', linewidth=2, linestyle='--'))
 
         axes[i, 1].set_title("2. Global Detection\n(GlobalBB)", fontsize=10)
         axes[i, 1].axis('off')
@@ -264,12 +282,12 @@ def main():
             px1, py1, px2, py2 = p
             axes[i, 3].add_patch(plt.Rectangle((px1, py1), px2-px1, py2-py1, fill=False, edgecolor='red', linewidth=2))
         
-        # GT for individual digits (Green)
-        if os.path.exists(mask_path):
-            from bounding_box.globalbb_detector import extract_digit_bboxes
-            digit_boxes = extract_digit_bboxes(mask)
+        # GT for individual digits (Green) from annotations.json
+        if os.path.exists(anno_path):
+            _, digit_info = get_gt_from_anno(anno_path)
             cx1, cy1, cx2, cy2 = res['crop_coords']
-            for (dx1, dy1, dx2, dy2) in digit_boxes:
+            for digit in digit_info:
+                dx1, dy1, dx2, dy2 = digit['bbox']
                 nx1 = (dx1 - cx1) * 2.0
                 ny1 = (dy1 - cy1) * 2.0
                 nx2 = (dx2 - cx1) * 2.0

@@ -21,18 +21,12 @@ def prepare(output_base_dir, limit=None):
     for img, label in mnist_train:
         digit_pool[label].append(img)
     
-    # 2. Download/Locate natural backgrounds
-    print("Fetching background images...")
     bg_path = kagglehub.dataset_download("prasunroy/natural-images")
     bg_files = glob.glob(os.path.join(bg_path, "**", "*.jpg"), recursive=True)
-    if not bg_files:
-        print("Warning: No background images found, will use synthetic backgrounds.")
     
     dataset_dir = os.path.join(output_base_dir, "handwritten")
     os.makedirs(dataset_dir, exist_ok=True)
     num_samples = limit if limit else 1000
-    
-    print(f"Generating {num_samples} samples planted in real-world images...")
     
     for i in tqdm(range(num_samples), desc="Handwritten"):
         n_digits = random.randint(1, 6)

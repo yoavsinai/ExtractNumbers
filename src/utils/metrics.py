@@ -1,6 +1,51 @@
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 import numpy as np
 
+def calculate_iou(boxA, boxB):
+    """
+    Calculate the Intersection over Union (IoU) of two bounding boxes.
+    
+    Args:
+        boxA, boxB: Bounding boxes in (x1, y1, x2, y2) format.
+        
+    Returns:
+        float: IoU value between 0.0 and 1.0.
+    """
+    if boxA is None or boxB is None:
+        return 0.0
+        
+    # Determine the coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+
+    # Compute the area of intersection rectangle
+    interWidth = max(0, xB - xA)
+    interHeight = max(0, yB - yA)
+    interArea = interWidth * interHeight
+
+    # Compute the area of both bounding boxes
+    boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+    boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+
+    # Compute IoU
+    iou = interArea / float(boxAArea + boxBArea - interArea + 1e-6)
+    return iou
+
+def calculate_mean_iou(gt_boxes, pred_boxes):
+    """
+    Calculate the mean IoU for a list of GT and predicted boxes.
+    This assumes a 1-to-1 mapping or matching. For multiple boxes,
+    a matching algorithm should be used, but for simplicity we'll 
+    handle the single-box case or assume they are ordered.
+    """
+    ious = []
+    for gt, pred in zip(gt_boxes, pred_boxes):
+        ious.append(calculate_iou(gt, pred))
+    
+    return np.mean(ious) if ious else 0.0
+
 def calculate_metrics(y_true, y_pred, average='weighted'):
     """
     Calculate common classification metrics.
@@ -68,9 +113,12 @@ def print_metrics_report(y_true, y_pred, title="Evaluation Report", average='wei
     # We only show the report if the number of unique labels is not too large
     unique_labels = sorted(list(set(filtered_true) | set(filtered_pred)))
     if len(unique_labels) <= 50: # Avoid huge reports for string-based comparisons
-        print(classification_report(filtered_true, filtered_pred, zero_division=0))
+        report = classification_report(filtered_true, filtered_pred, zero_division=0)
+        print(report)
+        return metrics, report
     else:
         print("Report too large to display (many unique classes).")
+        return metrics, None
         
     print('='*50)
     return metrics

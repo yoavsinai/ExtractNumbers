@@ -7,10 +7,11 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import random
-
-# Base path configuration
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if os.path.join(BASE_DIR, "src") not in sys.path:
+    sys.path.append(os.path.join(BASE_DIR, "src"))
+
+from utils.data_utils import iter_new_samples, get_gt_from_anno
 SRC_DIR = os.path.join(BASE_DIR, "src", "bounding_box")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
 GlobalBB_RUN_DIR = os.path.join(OUTPUT_DIR, "globalbb_runs", "run1")
@@ -53,56 +54,37 @@ def analyze_epochs(csv_path):
 def preview_ground_truth():
     """Create a preview image to verify labels before training."""
     print("\nGenerating Ground Truth preview...")
-    dataset_root = os.path.join(BASE_DIR, "data", "segmentation")
+    dataset_root = os.path.join(BASE_DIR, "data", "digits_data")
     preview_img_path = os.path.join(OUTPUT_DIR, "preview_labels_before_training.png")
-    categories = ['natural', 'synthetic', 'handwritten']
+    
+    all_samples = iter_new_samples(dataset_root)
+    if not all_samples:
+        print("Warning: No samples found for preview.")
+        return preview_img_path
+        
+    categories = list(set([s['category'] for s in all_samples]))
     samples_per_cat = 2
     
     fig, axes = plt.subplots(len(categories), samples_per_cat, figsize=(10, 8))
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     
     for i, cat in enumerate(categories):
-        cat_dir = os.path.join(dataset_root, cat)
-        if not os.path.exists(cat_dir): continue
-        
-        folders = os.listdir(cat_dir)
-        selected_folders = random.sample(folders, min(samples_per_cat, len(folders)))
-        
-        for j, folder in enumerate(selected_folders):
-            img_path = os.path.join(cat_dir, folder, "image.jpg")
-            mask_path = os.path.join(cat_dir, folder, "mask.png")
+        cat_samples = [s for s in all_samples if s['category'] == cat]
+        if len(cat_samples) < samples_per_cat:
+            selected = cat_samples
+        else:
+            selected = random.sample(cat_samples, samples_per_cat)
             
-            if not os.path.exists(img_path) or not os.path.exists(mask_path): continue
-            
-            img = cv2.imread(img_path)
+        for j, s in enumerate(selected):
+            img = cv2.imread(s['image_path'])
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
             
-            ax = axes[i, j]
+            ax = axes[i, j] if len(categories) > 1 else axes[j]
             ax.imshow(img)
             
-            if mask is not None:
-                # --- החלק המתוקן מתחיל כאן ---
-                
-                # 1. יצירת קרנל (גרעין) למתיחה. 
-                # (15, 3) אומר שאנחנו מותחים הרבה לרוחב (כדי לחבר ספרות) וקצת לגובה.
-                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 3))
-                
-                # 2. ביצוע Dilation - זה יגרום לספרות קרובות "להידבק"
-                dilated_mask = cv2.dilate(mask, kernel, iterations=1)
-                
-                # 3. מציאת קונטורים על המסיכה המורחבת
-                contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                
-                for cnt in contours:
-                    # מוצאים את הריבוע החוסם של הקונטור המאוחד
-                    x, y, w, h = cv2.boundingRect(cnt)
-                    
-                    # סינון רעשים קטנים מאוד
-                    if w * h > 10:
-                        ax.add_patch(plt.Rectangle((x, y), w, h, fill=False, edgecolor='lime', linewidth=3))
-                
-                # --- החלק המתוקן מסתיים כאן ---
+            global_boxes, _ = get_gt_from_anno(s['anno_path'])
+            for x1, y1, x2, y2 in global_boxes:
+                ax.add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='lime', linewidth=3))
             
             ax.set_title(f"Preview: {cat}")
             ax.axis('off')
@@ -141,7 +123,7 @@ def main():
         print("Step 1/3: Running GlobalBB Training & Inference...")
         
         globalbb_args = [
-            "--dataset-root", os.path.join(BASE_DIR, "data", "segmentation"),
+            "--dataset-root", os.path.join(BASE_DIR, "data", "digits_data"),
             "--output-dir", OUTPUT_DIR,
             "--epochs", "20",
             "--overwrite-conversion"
