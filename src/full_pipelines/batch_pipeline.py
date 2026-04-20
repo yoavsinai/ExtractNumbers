@@ -16,17 +16,22 @@ sys.path.append(os.path.join(BASE_DIR, "src"))
 from image_preprocessing.digit_preprocessor import enhance_digit
 from utils.data_utils import iter_new_samples, get_gt_from_anno
 
-# Path configuration
-BOUNDING_BOX_SRC = os.path.join(BASE_DIR, "src", "bounding_box")
-OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+# Structured Output Directories
+TRAINED_MODELS_DIR = os.path.join(BASE_DIR, "outputs", "trained_models")
+REPORTS_DIR = os.path.join(BASE_DIR, "outputs", "reports")
+VIS_DIR = os.path.join(BASE_DIR, "outputs", "visualizations")
+DATASETS_DIR = os.path.join(BASE_DIR, "outputs", "datasets")
+PREDS_DIR = os.path.join(BASE_DIR, "outputs", "raw_predictions")
 
-PREDICTIONS_CSV = os.path.join(OUTPUT_DIR, "globalbb_predictions.csv")
-BEST_GLOBAL_PATH = os.path.join(OUTPUT_DIR, "globalbb_run", "weights", "best.pt")
-BEST_INDIVIDUAL_PATH = os.path.join(OUTPUT_DIR, "individualbb_run", "weights", "best.pt")
-SHARPENED_DIR = os.path.join(OUTPUT_DIR, "sharpened_crops")
-PROG_IMAGE_PATH = os.path.join(OUTPUT_DIR, "full_pipeline_progression.png")
-INDIVIDUAL_PREDICTIONS_CSV = os.path.join(OUTPUT_DIR, "individualbb_predictions.csv")
+# Specific Paths
+BOUNDING_BOX_SRC = os.path.join(BASE_DIR, "src", "bounding_box")
+ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+BEST_GLOBAL_PATH = os.path.join(TRAINED_MODELS_DIR, "globalbb.pt")
+BEST_INDIVIDUAL_PATH = os.path.join(TRAINED_MODELS_DIR, "individualbb.pt")
+GLOBAL_PREDS_CSV = os.path.join(PREDS_DIR, "globalbb_preds.csv")
+INDIV_PREDS_CSV = os.path.join(PREDS_DIR, "individualbb_preds.csv")
+PROG_IMAGE_PATH = os.path.join(VIS_DIR, "pipeline_progression.png")
+SHARPENED_DIR = os.path.join(DATASETS_DIR, "sharpened_crops")
 
 def run_python_script(script_path, args=[], capture=True):
     """Run a Python script. If capture=True, output is hidden until completion."""
@@ -58,16 +63,17 @@ def main():
     if args.viz_only:
         print("=> --viz-only enabled. Skipping Stage 1-3 checks and jumping to fresh visualization.")
     else:
-        predictions_exist = os.path.exists(PREDICTIONS_CSV)
+        predictions_exist = os.path.exists(GLOBAL_PREDS_CSV)
         
         if args.analyze_only and predictions_exist:
             print("=> --analyze-only enabled and predictions exist. Skipping Stage 1.")
         else:
-            # Determine if we need to train GlobalBB
+            # We still train in the yolo_runs dir but we will copy the result out
+            YOLO_OUT = os.path.join(BASE_DIR, "outputs", "yolo_runs")
             skip_train_global = os.path.exists(BEST_GLOBAL_PATH) and not args.force_train
             detector_script = os.path.join(BOUNDING_BOX_SRC, "globalbb_detector.py")
             
-            detector_args = ["--output-dir", OUTPUT_DIR, "--epochs", str(args.epochs)]
+            detector_args = ["--output-dir", YOLO_OUT, "--epochs", str(args.epochs)]
             if skip_train_global:
                 detector_args.append("--skip-train")
                 if not args.force_inference:
@@ -79,6 +85,16 @@ def main():
             if not run_python_script(detector_script, detector_args, capture=False):
                 print("Failed at Stage 1 detection.")
                 sys.exit(1)
+            
+            # Copy final weights if they were just trained
+            new_global_weights = os.path.join(YOLO_OUT, "globalbb_run", "weights", "best.pt")
+            if os.path.exists(new_global_weights):
+                shutil.copy(new_global_weights, BEST_GLOBAL_PATH)
+            
+            # Copy predictions CSV
+            new_preds = os.path.join(YOLO_OUT, "globalbb_predictions.csv")
+            if os.path.exists(new_preds):
+                shutil.copy(new_preds, GLOBAL_PREDS_CSV)
 
         dataset_root = os.path.join(BASE_DIR, "data", "digits_data")
         all_samples = iter_new_samples(dataset_root)
@@ -138,8 +154,13 @@ def main():
             print("Failed at IndividualBB training.")
             sys.exit(1)
 
+        # Copy IndividualBB weights if they were just trained
+        new_indiv_weights = os.path.join(YOLO_OUT, "individualbb_run", "weights", "best.pt")
+        if os.path.exists(new_indiv_weights):
+            shutil.copy(new_indiv_weights, BEST_INDIVIDUAL_PATH)
+
     # Load Stage 1 predictions
-    df = pd.read_csv(PREDICTIONS_CSV)
+    df = pd.read_csv(GLOBAL_PREDS_CSV)
     df_valid = df.dropna(subset=['pred_x1'])
     print(f"\n=> Loaded {len(df)} Stage 1 records ({len(df_valid)} valid detections).")
 
@@ -148,9 +169,9 @@ def main():
     indiv_model = YOLO(BEST_INDIVIDUAL_PATH)
 
     # Cache check for Stage 4
-    if os.path.exists(INDIVIDUAL_PREDICTIONS_CSV) and not args.force_inference and not args.force_train:
-        print(f"=> Found existing IndividualBB predictions at {INDIVIDUAL_PREDICTIONS_CSV}. Loading...")
-        df_indiv = pd.read_csv(INDIVIDUAL_PREDICTIONS_CSV)
+    if os.path.exists(INDIV_PREDS_CSV) and not args.force_inference and not args.force_train:
+        print(f"=> Found existing IndividualBB predictions at {INDIV_PREDS_CSV}. Loading...")
+        df_indiv = pd.read_csv(INDIV_PREDS_CSV)
         
         # Pick 3 random samples for visualization from the cached results
         viz_samples = []
@@ -240,8 +261,8 @@ def main():
                 break
         
         if not args.viz_only:
-            pd.DataFrame(all_indiv_results).to_csv(INDIVIDUAL_PREDICTIONS_CSV, index=False)
-            print(f"=> Stage 4 predictions saved to {INDIVIDUAL_PREDICTIONS_CSV}")
+            pd.DataFrame(all_indiv_results).to_csv(INDIV_PREDS_CSV, index=False)
+            print(f"=> Stage 4 predictions saved to {INDIV_PREDS_CSV}")
 
     print(f"\n=== Rendering Pipeline Progression Visualization ===")
     
@@ -314,12 +335,17 @@ def main():
 
     # Restore the classic GlobalBB summary report
     print("\nUpdating classic globalbb comparison summary...")
+    # NOTE: We keep visualizer for backward compatibility but redirect output
     visualizer_script = os.path.join(BOUNDING_BOX_SRC, "visualize_globalbb_results.py")
     if os.path.exists(visualizer_script):
-        run_python_script(visualizer_script)
+        # We manually copy the summary if it was generated
+        run_python_script(visualizer_script, ["--output-dir", YOLO_OUT])
+        new_summary = os.path.join(YOLO_OUT, "globalbb_comparison_summary.png")
+        if os.path.exists(new_summary):
+            shutil.copy(new_summary, os.path.join(VIS_DIR, "globalbb_summary.png"))
 
     print("\n--- Training Results Summary (Stage 2) ---")
-    results_csv = os.path.join(OUTPUT_DIR, "individualbb_runs", "run1", "results.csv")
+    results_csv = os.path.join(YOLO_OUT, "individualbb_run", "results.csv")
     if os.path.exists(results_csv):
         rdf = pd.read_csv(results_csv)
         rdf.columns = rdf.columns.str.strip()

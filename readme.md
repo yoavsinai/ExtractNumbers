@@ -22,27 +22,7 @@ A comprehensive image recognition and segmentation dataset generation pipeline.
 
 ## Dataset Structure
 
-After running the preparation script, your `data/` directory will be structured as follows:
-
-* **Classification** (`data/classification/`)
-  * `single_digits/`: 5,000+ images per digit (0-9) from MNIST, SVHN, and Handwritten sources.
-  * `multi_digits/`: 2,000 synthesized multi-digit sequences with surrounding letter noise.
-* **Segmentation** (`data/segmentation/`)
-  * `natural/`: 500 house number images (SVHN Format 1) with paired binary masks.
-  * `synthetic/`: 500 high-noise synthetic images with paired binary masks.
-  * `handwritten/`: 500 high-contrast handwritten digit samples with randomized color palettes and large distractor letters.
-  * #### Data Augmentation & Noise Summary
-      The segmentation dataset underwent various augmentation processes to improve model robustness, including White Noise, Blur, and Stretching/Pixelation:
-      
-      | Dataset Type | White Noise | Blur | Stretching / Pixelation |
-      | :--- | :--- | :--- | :--- |
-      | **Synthetic** | ✅ Applied globally to the entire image. | ✅ Applied globally to the entire image. | ✅ Applied globally to the entire image. |
-      | **Handwritten** | ⚠️ Only on digits (from classification stage). | ⚠️ Only on digits (from classification stage). | ⚠️ Only on digits (from classification stage). |
-      | **Natural (SVHN)** | ❌ Not applied; uses original quality. | ❌ Not applied; uses original quality. | ❌ Not applied; uses original quality. |
-
-
-Each segmentation sample is isolated in its own numeric folder (e.g., `data/segmentation/synthetic/0/image.jpg` and `data/segmentation/synthetic/0/mask.png`).
-
+Refer to [`data/readme.md`](src/data/readme.md) for the dataset structure.
 
 ***** יואב, להוסיף כאן הסבר על הדאטה ***_
 
@@ -215,4 +195,12 @@ python src/evaluation/evaluate_classifier.py
 
 # Benchmark the full End-to-End pipeline
 python src/evaluation/evaluate_pipeline.py --max-samples 500 --save-viz
+
+# Generate a detailed 5-stage error analysis
+python src/evaluation/visualize_error_analysis.py
 ```
+
+#### Multi-Stage Flow Deep Dive
+For a detailed look at how the model succeeds or fails at each individual step (from raw pixels to final classification), see the error analysis below:
+
+![Detailed Error Analysis](assets/detailed_error_analysis.png)

@@ -45,11 +45,14 @@ def main():
     parser.add_argument("--save-viz", action="store_true", help="Save the evaluation dashboard image")
     args = parser.parse_args()
 
-    # Paths
-    OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "bbox_comparison")
-    GLOBAL_MODEL_PATH = os.path.join(OUTPUT_DIR, "globalbb_run", "weights", "best.pt")
-    INDIV_MODEL_PATH = os.path.join(OUTPUT_DIR, "individualbb_run", "weights", "best.pt")
-    CLASSIFIER_PATH = os.path.join(OUTPUT_DIR, "digit_classifier.pth")
+    # Structured Paths
+    TRAINED_DIR = os.path.join(BASE_DIR, "outputs", "trained_models")
+    VIS_DIR = os.path.join(BASE_DIR, "outputs", "visualizations")
+    REPORTS_DIR = os.path.join(BASE_DIR, "outputs", "reports")
+    
+    GLOBAL_MODEL_PATH = os.path.join(TRAINED_DIR, "globalbb.pt")
+    INDIV_MODEL_PATH = os.path.join(TRAINED_DIR, "individualbb.pt")
+    CLASSIFIER_PATH = os.path.join(TRAINED_DIR, "digit_classifier.pth")
     DATA_ROOT = os.path.join(BASE_DIR, "data", "digits_data")
     
     device = get_device()
@@ -240,12 +243,12 @@ def main():
             axes[i, 3].text(0.1, 0.5, txt, fontsize=14, fontweight='bold', color=color, verticalalignment='center')
 
         plt.suptitle("FULL PIPELINE PERFORMANCE DASHBOARD", fontsize=20, fontweight='bold', y=0.98)
-        viz_path = os.path.join(BASE_DIR, "outputs", "full_pipeline_dashboard.png")
+        viz_path = os.path.join(VIS_DIR, "evaluation_dashboard.png")
         plt.savefig(viz_path, bbox_inches='tight', dpi=120)
         print(f"✨ Dashboard saved to: {viz_path}")
 
     # Save CSV
-    csv_path = os.path.join(BASE_DIR, "outputs", "pipeline_evaluation_summary.csv")
+    csv_path = os.path.join(REPORTS_DIR, "pipeline_metrics.csv")
     df_mini = df.drop(columns=[c for c in df.columns if c.startswith('vis_')])
     df_mini.to_csv(csv_path, index=False)
     print(f"💾 Detailed results saved to: {csv_path}")

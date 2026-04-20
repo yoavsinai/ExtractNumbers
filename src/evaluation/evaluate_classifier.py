@@ -72,7 +72,9 @@ def main():
     args = parser.parse_args()
 
     # Paths
-    MODEL_PATH = os.path.join(BASE_DIR, "outputs", "bbox_comparison", "digit_classifier.pth")
+    TRAINED_DIR = os.path.join(BASE_DIR, "outputs", "trained_models")
+    REPORTS_DIR = os.path.join(BASE_DIR, "outputs", "reports")
+    MODEL_PATH = os.path.join(TRAINED_DIR, "digit_classifier.pth")
     DATA_DIR = os.path.join(BASE_DIR, "data", "digits_data")
     
     if not os.path.exists(MODEL_PATH):
@@ -135,11 +137,10 @@ def main():
         print("No-Sharpen:  Evaluated at 89.6%")
 
     # Save report
-    out_dir = os.path.join(BASE_DIR, "outputs", "evaluation")
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "classifier_report.txt"), "w") as f:
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    with open(os.path.join(REPORTS_DIR, "classifier_metrics.txt"), "w") as f:
         f.write(report)
-    print(f"\n✅ Evaluation complete. Report saved to {out_dir}/classifier_report.txt")
+    print(f"\n✅ Evaluation complete. Report saved to {REPORTS_DIR}/classifier_metrics.txt")
 
 if __name__ == "__main__":
     main()

@@ -15,9 +15,9 @@ from digit_recognizer.digit_recognizer import build_digit_model, get_device, pre
 def predict_image(image_path, model_dir):
     device = get_device()
     
-    # Paths
-    GLOBAL_MODEL_PATH = os.path.join(model_dir, "globalbb_run", "weights", "best.pt")
-    INDIV_MODEL_PATH = os.path.join(model_dir, "individualbb_run", "weights", "best.pt")
+    # Individual model components
+    GLOBAL_MODEL_PATH = os.path.join(model_dir, "globalbb.pt")
+    INDIV_MODEL_PATH = os.path.join(model_dir, "individualbb.pt")
     CLASSIFIER_PATH = os.path.join(model_dir, "digit_classifier.pth")
     
     # Load Models
@@ -70,7 +70,7 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Predict number in a single image.")
     parser.add_argument("image_path", help="Path to the image file")
-    parser.add_argument("--model-dir", default=os.path.join(BASE_DIR, "outputs", "bbox_comparison"), help="Directory containing models")
+    parser.add_argument("--model-dir", default=os.path.join(BASE_DIR, "outputs", "trained_models"), help="Directory containing models")
     args = parser.parse_args()
     
     result = predict_image(args.image_path, args.model_dir)
