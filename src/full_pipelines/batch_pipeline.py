@@ -180,6 +180,7 @@ def main():
                     'cat': cat,
                     'original': img,
                     'crop_coords': (x1, y1, x2, y2),
+                    'crop': crop,
                     'sharpened': sharp,
                     'indiv_preds': indiv_preds,
                     'sample_info': row
@@ -223,14 +224,15 @@ def main():
 
             # Capture a few random samples for the final summary image
             if len(viz_samples) < 3 and cat not in [v['cat'] for v in viz_samples]:
-                 viz_samples.append({
+                viz_samples.append({
                     'cat': cat,
                     'original': img,
                     'crop_coords': (x1, y1, x2, y2),
+                    'crop': crop,
                     'sharpened': sharp,
                     'indiv_preds': indiv_preds,
                     'sample_info': row
-                 })
+                })
                  
             # Optimization: Stop early if we only want visualization and have enough samples
             if args.viz_only and len(viz_samples) >= 3:
@@ -243,7 +245,7 @@ def main():
 
     print(f"\n=== Rendering Pipeline Progression Visualization ===")
     
-    fig, axes = plt.subplots(3, 4, figsize=(18, 12))
+    fig, axes = plt.subplots(3, 5, figsize=(22, 12))
     plt.subplots_adjust(wspace=0.2, hspace=0.3)
 
     for i, res in enumerate(viz_samples):
@@ -269,18 +271,24 @@ def main():
 
         axes[i, 1].set_title("2. Global Detection\n(GlobalBB)", fontsize=10)
         axes[i, 1].axis('off')
-        
-        # Panel 3: Image Enhancement
-        sharp_rgb = cv2.cvtColor(res['sharpened'], cv2.COLOR_BGR2RGB)
-        axes[i, 2].imshow(sharp_rgb)
-        axes[i, 2].set_title("3. Image Enhancement\n(Sharpening)", fontsize=10)
+
+        # Panel 3: Raw Crop (Stage 2 input)
+        crop_rgb = cv2.cvtColor(res['crop'], cv2.COLOR_BGR2RGB)
+        axes[i, 2].imshow(crop_rgb)
+        axes[i, 2].set_title("3. Raw Crop\n(Unsharpened)", fontsize=10)
         axes[i, 2].axis('off')
         
-        # Panel 4: Individual Digit Detection
+        # Panel 4: Image Enhancement
+        sharp_rgb = cv2.cvtColor(res['sharpened'], cv2.COLOR_BGR2RGB)
         axes[i, 3].imshow(sharp_rgb)
+        axes[i, 3].set_title("4. Image Enhancement\n(Sharpening)", fontsize=10)
+        axes[i, 3].axis('off')
+        
+        # Panel 5: Individual Digit Detection
+        axes[i, 4].imshow(sharp_rgb)
         for p in res['indiv_preds']:
             px1, py1, px2, py2 = p
-            axes[i, 3].add_patch(plt.Rectangle((px1, py1), px2-px1, py2-py1, fill=False, edgecolor='red', linewidth=2))
+            axes[i, 4].add_patch(plt.Rectangle((px1, py1), px2-px1, py2-py1, fill=False, edgecolor='red', linewidth=2))
         
         # GT for individual digits (Green) from annotations.json
         if os.path.exists(anno_path):
@@ -293,10 +301,10 @@ def main():
                 nx2 = (dx2 - cx1) * 2.0
                 ny2 = (dy2 - cy1) * 2.0
                 if nx2 > 0 and ny2 > 0:
-                   axes[i, 3].add_patch(plt.Rectangle((nx1, ny1), nx2-nx1, ny2-ny1, fill=False, edgecolor='lime', linewidth=2, linestyle=':'))
+                   axes[i, 4].add_patch(plt.Rectangle((nx1, ny1), nx2-nx1, ny2-ny1, fill=False, edgecolor='lime', linewidth=2, linestyle=':'))
 
-        axes[i, 3].set_title("4. Individual Detection\n(IndividualBB)", fontsize=10)
-        axes[i, 3].axis('off')
+        axes[i, 4].set_title("5. Individual Detection\n(IndividualBB)", fontsize=10)
+        axes[i, 4].axis('off')
 
     plt.suptitle("FULL EXTRACTION PIPELINE: Multi-Stage Progression", fontsize=18, fontweight='bold', y=0.98)
     plt.savefig(PROG_IMAGE_PATH, bbox_inches='tight', dpi=150)

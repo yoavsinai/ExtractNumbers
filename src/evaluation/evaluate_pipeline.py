@@ -174,6 +174,7 @@ def main():
             's2_iou_avg': np.mean(s2_ious) if s2_ious else 0,
             # Data for visualization
             'vis_img': img,
+            'vis_crop': crop,
             'vis_sharp': sharp,
             'vis_gx1': gx1, 'vis_gy1': gy1, 'vis_gx2': gx2, 'vis_gy2': gy2,
             'vis_iboxes': pred_indiv_boxes
@@ -206,31 +207,37 @@ def main():
         viz_samples.extend(successes[:2])
         viz_samples.extend(failures[:2])
         
-        fig, axes = plt.subplots(len(viz_samples), 3, figsize=(18, 5 * len(viz_samples)))
-        plt.subplots_adjust(hspace=0.4)
+        fig, axes = plt.subplots(len(viz_samples), 4, figsize=(22, 5 * len(viz_samples)))
+        plt.subplots_adjust(hspace=0.4, wspace=0.3)
         
         for i, res in enumerate(viz_samples):
             # Panel 1: Original + Global BB
             img_rgb = cv2.cvtColor(res['vis_img'], cv2.COLOR_BGR2RGB)
             cv2.rectangle(img_rgb, (res['vis_gx1'], res['vis_gy1']), (res['vis_gx2'], res['vis_gy2']), (255, 0, 0), 4)
             axes[i, 0].imshow(img_rgb)
-            axes[i, 0].set_title(f"Global Detection (IoU: {res['s1_iou']:.2f})")
+            axes[i, 0].set_title(f"1. Global Detection\n(IoU: {res['s1_iou']:.2f})")
             axes[i, 0].axis('off')
             
-            # Panel 2: Sharp + Individual BBs
+            # Panel 2: Raw Crop (Stage 2 input)
+            crop_rgb = cv2.cvtColor(res['vis_crop'], cv2.COLOR_BGR2RGB)
+            axes[i, 1].imshow(crop_rgb)
+            axes[i, 1].set_title("2. Raw Crop\n(Input for Enhancement)")
+            axes[i, 1].axis('off')
+
+            # Panel 3: Sharp + Individual BBs
             sharp_rgb = cv2.cvtColor(res['vis_sharp'], cv2.COLOR_BGR2RGB)
             for ibox in res['vis_iboxes']:
                  cv2.rectangle(sharp_rgb, (int(ibox[0]), int(ibox[1])), (int(ibox[2]), int(ibox[3])), (255, 255, 0), 2)
-            axes[i, 1].imshow(sharp_rgb)
-            axes[i, 1].set_title(f"Processed & Individual Detector")
-            axes[i, 1].axis('off')
-            
-            # Panel 3: Results
+            axes[i, 2].imshow(sharp_rgb)
+            axes[i, 2].set_title("3. Individual Detection\n(Post-Sharpening)")
             axes[i, 2].axis('off')
+            
+            # Panel 4: Results
+            axes[i, 3].axis('off')
             status = "SUCCESS" if res['correct'] else "FAILURE"
             color = "green" if res['correct'] else "red"
             txt = f"[{status}]\n\nGT:   {res['gt']}\nPred: {res['pred']}\n\nDigit Acc: {res['correct_digits']}/{res['total_digits']}\nCategory: {res['category']}"
-            axes[i, 2].text(0.1, 0.5, txt, fontsize=14, fontweight='bold', color=color, verticalalignment='center')
+            axes[i, 3].text(0.1, 0.5, txt, fontsize=14, fontweight='bold', color=color, verticalalignment='center')
 
         plt.suptitle("FULL PIPELINE PERFORMANCE DASHBOARD", fontsize=20, fontweight='bold', y=0.98)
         viz_path = os.path.join(BASE_DIR, "outputs", "full_pipeline_dashboard.png")

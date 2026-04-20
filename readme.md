@@ -129,7 +129,12 @@ For a seamless experience, the entire multi-stage flow (Detection → Sharpening
 
 **To run the full pipeline:**
 ```bash
-python "src/full_pipelines/run_full_enhanced_flow.py"
+python src/full_pipelines/batch_pipeline.py
+```
+
+**To run on a single image:**
+```bash
+python src/full_pipelines/predict_single.py path/to/image.png
 ```
 
 #### **Control Flags**
@@ -182,13 +187,32 @@ Tested on 76,803 extracted digits from the full dataset using the ResNet18 class
 * **Traditional**: 91.0%
 * **No-Sharpen**: 89.6%
 
-### 2. Full Pipeline (Segmentation + Extraction + Classification)
-Tested on the complete end-to-end pipeline using the `natural` (SVHN) dataset (91 valid digits extracted from 50 images):
-* **Real-ESRGAN**: **54.95% Accuracy** (F1: 0.5368, Precision: 0.6707) 🏆
-* **No-Sharpen**: 49.45% Accuracy (F1: 0.4562, Precision: 0.5466)
-* **Traditional**: 47.25% Accuracy (F1: 0.4415, Precision: 0.5083)
-* **Both**: 47.25% Accuracy (F1: 0.4415, Precision: 0.5083)
+### 2. End-to-End Pipeline Performance
+Tested on the complete end-to-end flow using 500 random samples from the full dataset.
+
+| Metric | Overall | Natural (SVHN) | Handwritten |
+| :--- | :--- | :--- | :--- |
+| **Full Sequence Accuracy** | **79.20%** | **80.33%** | 47.06% |
+| **Mean Digit Accuracy** | **88.86%** | **89.25%** | **76.44%** |
+| **Stage 1 (Global) IoU**| 0.7943 | - | - |
+| **Stage 2 (Indiv) IoU** | 0.7390 | - | - |
+
+#### Pipeline Evaluation Dashboard
+Below is a visual breakdown of successes and failures across the 4-stage pipeline, including IoU metrics and positional digit accuracy:
+
+![Full Pipeline Dashboard](assets/full_pipeline_dashboard.png)
 
 **Key Takeaways:**
-* The combination of **Both** (Real-ESRGAN + Traditional) yielded identical results to just the **Traditional** method. The binarization step likely overwrites the fine details produced by the AI upscaler.
-* **Real-ESRGAN** provides a significant boost (~10% improvement) in end-to-end precision for blurry real-world images (SVHN), making it the recommended preprocessing step for natural scenes.
+* **Sequence vs. Digit Accuracy**: While getting the *entire* number sequence correct is challenging (especially in Handwritten samples), the **Mean Digit Accuracy** remains high (~89%), meaning the pipeline correctly identifies almost 9 out of 10 characters in context.
+* **Handwritten Performance**: Handwritten samples show significantly lower sequence accuracy due to the high variability of characters, but the individual digit recognition remains robust at 76%.
+* **Real-ESRGAN Impact**: AI-powered sharpening remains the cornerstone for achieving the 80%+ accuracy seen in natural SVHN scenes.
+
+### 3. How to Run Evaluations
+Use the consolidated evaluation suite to reproduce these metrics:
+```bash
+# Evaluate the 0-9 classifier
+python src/evaluation/evaluate_classifier.py
+
+# Benchmark the full End-to-End pipeline
+python src/evaluation/evaluate_pipeline.py --max-samples 500 --save-viz
+```
