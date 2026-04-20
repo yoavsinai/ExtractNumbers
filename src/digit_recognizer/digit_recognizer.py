@@ -117,7 +117,8 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
         running_loss = 0.0
         correct = 0
         count = 0
-        for images, labels in train_loader:
+        pbar = tqdm(train_loader, desc=f"Epoch {ep+1}/{epochs} [Train]")
+        for images, labels in pbar:
             images = images.to(device)
             labels = labels.to(device)
 
@@ -131,6 +132,9 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
             preds = outputs.argmax(dim=1)
             correct += int((preds == labels).sum())
             count += images.size(0)
+            
+            # Update progress bar with current loss
+            pbar.set_postfix({'loss': f'{loss.item():.4f}'})
 
         avg_loss = running_loss / count if count > 0 else 0.0
         acc = correct / count if count > 0 else 0.0
@@ -140,7 +144,7 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
         val_correct = 0
         val_count = 0
         with torch.no_grad():
-            for images, labels in val_loader:
+            for images, labels in tqdm(val_loader, desc=f"Epoch {ep+1}/{epochs} [Val]"):
                 images = images.to(device)
                 labels = labels.to(device)
                 outputs = model(images)

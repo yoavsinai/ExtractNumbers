@@ -161,10 +161,25 @@ We compared four preprocessing strategies before feeding the digits to the ResNe
 4. **Both**: Real-ESRGAN followed by traditional unsharp masking.
 
 ### 1. Isolated Digit Classification Accuracy
-Tested on 500 pre-cropped, high-quality isolated digits:
+Tested on 76,803 extracted digits from the full dataset using the ResNet18 classifier:
+
+| Digit | Precision | Recall | F1-Score | Support |
+| :--- | :--- | :--- | :--- | :--- |
+| **0** | 0.97 | 0.97 | 0.97 | 5,297 |
+| **1** | 0.97 | 0.98 | 0.98 | 14,235 |
+| **2** | 0.98 | 0.97 | 0.98 | 10,957 |
+| **3** | 0.98 | 0.96 | 0.97 | 8,867 |
+| **4** | 0.97 | 0.99 | 0.98 | 7,786 |
+| **5** | 0.95 | 0.98 | 0.97 | 7,237 |
+| **6** | 0.99 | 0.94 | 0.96 | 6,073 |
+| **7** | 0.98 | 0.97 | 0.98 | 5,980 |
+| **8** | 0.96 | 0.96 | 0.96 | 5,383 |
+| **9** | 0.97 | 0.98 | 0.97 | 4,988 |
+| **AVG** | **0.97** | **0.97** | **0.97** | **76,803** |
+
+*Method Performance Comparison (Top Accuracy):*
 * **Real-ESRGAN**: **98.2%** 🏆
 * **Traditional**: 91.0%
-* **Both**: 91.0%
 * **No-Sharpen**: 89.6%
 
 ### 2. Full Pipeline (Segmentation + Extraction + Classification)
