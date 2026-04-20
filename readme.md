@@ -22,27 +22,7 @@ A comprehensive image recognition and segmentation dataset generation pipeline.
 
 ## Dataset Structure
 
-After running the preparation script, your `data/` directory will be structured as follows:
-
-* **Classification** (`data/classification/`)
-  * `single_digits/`: 5,000+ images per digit (0-9) from MNIST, SVHN, and Handwritten sources.
-  * `multi_digits/`: 2,000 synthesized multi-digit sequences with surrounding letter noise.
-* **Segmentation** (`data/segmentation/`)
-  * `natural/`: 500 house number images (SVHN Format 1) with paired binary masks.
-  * `synthetic/`: 500 high-noise synthetic images with paired binary masks.
-  * `handwritten/`: 500 high-contrast handwritten digit samples with randomized color palettes and large distractor letters.
-  * #### Data Augmentation & Noise Summary
-      The segmentation dataset underwent various augmentation processes to improve model robustness, including White Noise, Blur, and Stretching/Pixelation:
-      
-      | Dataset Type | White Noise | Blur | Stretching / Pixelation |
-      | :--- | :--- | :--- | :--- |
-      | **Synthetic** | ✅ Applied globally to the entire image. | ✅ Applied globally to the entire image. | ✅ Applied globally to the entire image. |
-      | **Handwritten** | ⚠️ Only on digits (from classification stage). | ⚠️ Only on digits (from classification stage). | ⚠️ Only on digits (from classification stage). |
-      | **Natural (SVHN)** | ❌ Not applied; uses original quality. | ❌ Not applied; uses original quality. | ❌ Not applied; uses original quality. |
-
-
-Each segmentation sample is isolated in its own numeric folder (e.g., `data/segmentation/synthetic/0/image.jpg` and `data/segmentation/synthetic/0/mask.png`).
-
+Refer to [`data/readme.md`](src/data/readme.md) for the dataset structure.
 
 ***** יואב, להוסיף כאן הסבר על הדאטה ***_
 
@@ -110,9 +90,9 @@ python "src/bounding_box/individualbb_detector.py" --train-only --epochs 20
 
 #### **Evaluation Results (Stage 2)**
 The IndividualBB model is trained to detect a single class ("digit") across all sharpened crops. The current model achieves high precision in isolating individual digits:
-* **Overall mAP50**: 92.86%
-* **Precision**: 88.54%
-* **Recall**: 94.09%
+* **Overall mAP50**: 99.27%
+* **Precision**: 98.45%
+* **Recall**: 98.22%
 
 ---
 
@@ -129,7 +109,12 @@ For a seamless experience, the entire multi-stage flow (Detection → Sharpening
 
 **To run the full pipeline:**
 ```bash
-python "src/full_pipelines/run_full_enhanced_flow.py"
+python src/full_pipelines/batch_pipeline.py
+```
+
+**To run on a single image:**
+```bash
+python src/full_pipelines/predict_single.py path/to/image.png
 ```
 
 #### **Control Flags**
@@ -141,12 +126,7 @@ The pipeline script offers granular control over the process:
 ---
 ## Project Results
 
-***** יואב, נא להוסיף כאן את תוצאות התהליך ***_
-
-***** נא להוסיף תמונה מסודרת המציגה את כל שלבי התהליך עבור 3 סוגי הדאטה (Pipeline Visualization): ***_
-`Input Image -> Global BB -> Sharpened Image -> Individual BB -> Final Classification Output`
-
-
+![Full Pipeline Dashboard](assets/full_pipeline_progression.png)
 ----------------------------------------------------------------------
 מה שכאן צריך למחוק או לשים בחלק הרלוונטי בתהליך.
 אז מתי כשאתה עורך אם השתמשת תעיף ואם לא צריך גם תעיף רק תעיף
@@ -161,19 +141,60 @@ We compared four preprocessing strategies before feeding the digits to the ResNe
 4. **Both**: Real-ESRGAN followed by traditional unsharp masking.
 
 ### 1. Isolated Digit Classification Accuracy
-Tested on 500 pre-cropped, high-quality isolated digits:
+Tested on 76,803 extracted digits from the full dataset using the ResNet18 classifier:
+
+| Digit | Precision | Recall | F1-Score | Support |
+| :--- | :--- | :--- | :--- | :--- |
+| **0** | 0.97 | 0.97 | 0.97 | 5,297 |
+| **1** | 0.97 | 0.98 | 0.98 | 14,235 |
+| **2** | 0.98 | 0.97 | 0.98 | 10,957 |
+| **3** | 0.98 | 0.96 | 0.97 | 8,867 |
+| **4** | 0.97 | 0.99 | 0.98 | 7,786 |
+| **5** | 0.95 | 0.98 | 0.97 | 7,237 |
+| **6** | 0.99 | 0.94 | 0.96 | 6,073 |
+| **7** | 0.98 | 0.97 | 0.98 | 5,980 |
+| **8** | 0.96 | 0.96 | 0.96 | 5,383 |
+| **9** | 0.97 | 0.98 | 0.97 | 4,988 |
+| **AVG** | **0.97** | **0.97** | **0.97** | **76,803** |
+
+*Method Performance Comparison (Top Accuracy):*
 * **Real-ESRGAN**: **98.2%** 🏆
 * **Traditional**: 91.0%
-* **Both**: 91.0%
 * **No-Sharpen**: 89.6%
 
-### 2. Full Pipeline (Segmentation + Extraction + Classification)
-Tested on the complete end-to-end pipeline using the `natural` (SVHN) dataset (91 valid digits extracted from 50 images):
-* **Real-ESRGAN**: **54.95% Accuracy** (F1: 0.5368, Precision: 0.6707) 🏆
-* **No-Sharpen**: 49.45% Accuracy (F1: 0.4562, Precision: 0.5466)
-* **Traditional**: 47.25% Accuracy (F1: 0.4415, Precision: 0.5083)
-* **Both**: 47.25% Accuracy (F1: 0.4415, Precision: 0.5083)
+### 2. End-to-End Pipeline Performance
+Tested on the complete end-to-end flow using 500 random samples from the full dataset.
+
+| Metric | Overall | Natural (SVHN) | Handwritten |
+| :--- | :--- | :--- | :--- |
+| **Full Sequence Accuracy** | **79.20%** | **80.33%** | 47.06% |
+| **Mean Digit Accuracy** | **88.86%** | **89.25%** | **76.44%** |
+| **Stage 1 (Global) IoU**| 0.7943 | - | - |
+| **Stage 2 (Indiv) IoU** | 0.7390 | - | - |
+
+#### Pipeline Evaluation Dashboard
+Below is a visual breakdown of successes and failures across the 4-stage pipeline, including IoU metrics and positional digit accuracy:
+
 
 **Key Takeaways:**
-* The combination of **Both** (Real-ESRGAN + Traditional) yielded identical results to just the **Traditional** method. The binarization step likely overwrites the fine details produced by the AI upscaler.
-* **Real-ESRGAN** provides a significant boost (~10% improvement) in end-to-end precision for blurry real-world images (SVHN), making it the recommended preprocessing step for natural scenes.
+* **Sequence vs. Digit Accuracy**: While getting the *entire* number sequence correct is challenging (especially in Handwritten samples), the **Mean Digit Accuracy** remains high (~89%), meaning the pipeline correctly identifies almost 9 out of 10 characters in context.
+* **Handwritten Performance**: Handwritten samples show significantly lower sequence accuracy due to the high variability of characters, but the individual digit recognition remains robust at 76%.
+* **Real-ESRGAN Impact**: AI-powered sharpening remains the cornerstone for achieving the 80%+ accuracy seen in natural SVHN scenes.
+
+### 3. How to Run Evaluations
+Use the consolidated evaluation suite to reproduce these metrics:
+```bash
+# Evaluate the 0-9 classifier
+python src/evaluation/evaluate_classifier.py
+
+# Benchmark the full End-to-End pipeline
+python src/evaluation/evaluate_pipeline.py --max-samples 500 --save-viz
+
+# Generate a detailed 5-stage error analysis
+python src/evaluation/visualize_error_analysis.py
+```
+
+#### Multi-Stage Flow Deep Dive
+For a detailed look at how the model succeeds or fails at each individual step (from raw pixels to final classification), see the error analysis below:
+
+![Detailed Error Analysis](assets/detailed_error_analysis.png)

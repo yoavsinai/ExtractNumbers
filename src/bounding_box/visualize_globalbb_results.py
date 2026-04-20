@@ -2,6 +2,11 @@ import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
 import os
+import sys
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if os.path.join(BASE_DIR, "src") not in sys.path:
+    sys.path.append(os.path.join(BASE_DIR, "src"))
+
 import numpy as np
 
 # Path configuration
@@ -54,7 +59,7 @@ def main():
         selected_img_paths = np.random.choice(unique_images, samples_per_cat, replace=False)
         
         for j, img_path in enumerate(selected_img_paths):
-            mask_path = img_path.replace("image.jpg", "mask.png")
+            anno_path = img_path.replace("original.png", "annotations.json")
             img = cv2.imread(img_path)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             
@@ -62,15 +67,11 @@ def main():
             ax.imshow(img)
             
             # Draw ground-truth box (green).
-            mask_img = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-            if mask_img is not None:
-                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
-                dilated_mask = cv2.dilate(mask_img, kernel, iterations=1)
-                contours, _ = cv2.findContours(dilated_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for cnt in contours:
-                    bx, by, bw, bh = cv2.boundingRect(cnt)
-                    if bw * bh > 10:
-                        ax.add_patch(plt.Rectangle((bx, by), bw, bh, fill=False, edgecolor='lime', linewidth=3))
+            from utils.data_utils import get_gt_from_anno
+            if os.path.exists(anno_path):
+                global_boxes, _ = get_gt_from_anno(anno_path)
+                for x1, y1, x2, y2 in global_boxes:
+                    ax.add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='lime', linewidth=3))
             
             # Draw GlobalBB predicted boxes (red).
             predictions = cat_df[cat_df['image_path'] == img_path]

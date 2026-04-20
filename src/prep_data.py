@@ -3,15 +3,11 @@ import os
 import shutil
 import sys
 import subprocess
+from dotenv import load_dotenv
 
-def run_script(script_path):
-    print(f"[{script_path}] Starting...")
-    # Execute the python scripts in standard order
-    result = subprocess.run([sys.executable, script_path])
-    if result.returncode != 0:
-        print(f"[{script_path}] ERROR! Exited with code {result.returncode}")
-        sys.exit(result.returncode)
-    print(f"[{script_path}] Finished successfully.\n")
+# Ensure we can import the data loaders from the local directory
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from data import svhn, race_numbers, handwritten
 
 def _safe_rmtree(path, base_dir, label):
     """Remove *path* only when it is a real directory inside *base_dir*."""
@@ -25,12 +21,10 @@ def _safe_rmtree(path, base_dir, label):
         print(f"Skipping {label}: '{path}' is outside the project root – will not remove.")
         return
     if not os.path.exists(path):
-        print(f"Skipping {label}: '{path}' does not exist – nothing to remove.")
         return
     if not os.path.isdir(path):
-        print(f"Skipping {label}: '{path}' is not a directory – will not remove.")
         return
-    print(f"Removing {label} directory: {path}")
+    print(f"Cleaning up {label} directory...")
     shutil.rmtree(path)
 
 def main():
@@ -38,44 +32,39 @@ def main():
     parser.add_argument(
         "--clean",
         action="store_true",
-        help="Delete existing output directories (data/classification and data/segmentation) before running.",
+        help="Delete existing processed data before running.",
     )
-    args = parser.parse_args()
+    parser.add_argument("--limit", type=int, default=None, help="Limit samples per dataset.")
+    parser.add_argument("--datasets", nargs="+", default=["svhn", "race_numbers", "handwritten"], help="Datasets to process.")
+    parser.add_argument("--no-augment", action="store_true", help="Skip the high-level augmentation phase.")
+    args, unknown = parser.parse_known_args()
 
-    print("=== Automated Data Preparation Pipeline ===\n")
+    # Load environment variables for Kaggle authentication
+    load_dotenv()
     
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    src_data_dir = os.path.join(base_dir, "src", "data")
+    output_dir = os.path.join(base_dir, "data", "digits_data")
     
-    # Only clean previous output when the user explicitly requests it
     if args.clean:
-        processed_dir = os.path.join(base_dir, "data", "classification")
-        seg_dir = os.path.join(base_dir, "data", "segmentation")
-        confirm = input(
-            "Are you sure you want to delete existing output directories? [y/N] "
-        ).strip().lower()
-        if confirm == "y":
-            if os.path.exists(processed_dir):
-                _safe_rmtree(processed_dir, base_dir, "classification")
-            if os.path.exists(seg_dir):
-                _safe_rmtree(seg_dir, base_dir, "segmentation")
-        else:
-            print("Clean step skipped.")
+        _safe_rmtree(output_dir, base_dir, "digits_data")
 
-    print("\n--- PHASE 1: Fetching core classification sets ---")
-    run_script(os.path.join(src_data_dir, "download_datasets.py"))
-    
-    print("--- PHASE 2: Compiling Classification Images ---")
-    run_script(os.path.join(src_data_dir, "process_dataset.py"))
-    
-    print("--- PHASE 3: Downloading & Parsing SVHN Segmentation ---")
-    run_script(os.path.join(src_data_dir, "process_svhn_seg.py"))
-    
-    print("--- PHASE 4: Generating Synthetic Segmentation Arrays ---")
-    run_script(os.path.join(src_data_dir, "create_synthetic_seg.py"))
+    os.makedirs(output_dir, exist_ok=True)
 
-    print("--- PHASE 5: Generating Handwritten Segmentation Arrays ---")
-    run_script(os.path.join(src_data_dir, "create_handwritten_seg.py"))
+    if "svhn" in args.datasets:
+        svhn.prepare(output_dir, limit=args.limit)
+
+    if "race_numbers" in args.datasets:
+        race_numbers.prepare(output_dir, limit=args.limit)
+
+    if "handwritten" in args.datasets:
+        handwritten.prepare(output_dir, limit=args.limit)
+
+    if not args.no_augment:
+        print("\n--- PHASE 2: Applying High-Level Augmentations ---")
+        aug_script = os.path.join(base_dir, "src", "data", "apply_augmentations.py")
+        subprocess.run([sys.executable, aug_script])
+    else:
+        print("\n--- PHASE 2 Skipped (Augmentations Disabled) ---")
 
     print("\n=== All Data Datasets Successfully Fetched & Built! ===")
 

@@ -5,6 +5,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import torch
 import torch.nn as nn
@@ -13,12 +14,54 @@ from torch.utils.data import DataLoader, random_split
 import torchvision.transforms as T
 import torchvision.models as models
 import torchvision.datasets as datasets
+import sys
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if os.path.join(BASE_DIR, "src") not in sys.path:
+    sys.path.append(os.path.join(BASE_DIR, "src"))
+
+from utils.data_utils import iter_new_samples, get_gt_from_anno
 
 
 def get_device() -> torch.device:
     if torch.cuda.is_available():
         return torch.device("cuda")
     return torch.device("cpu")
+
+
+class DigitDataset(torch.utils.data.Dataset):
+    def __init__(self, data_root, transform=None):
+        self.samples = iter_new_samples(data_root)
+        self.transform = transform
+        self.crops = []
+        
+        print(f"Preparing classification dataset from {data_root}...")
+        for s in tqdm(self.samples, desc="Cropping digits"):
+            img = cv2.imread(s['image_path'])
+            if img is None: continue
+            
+            _, digit_info = get_gt_from_anno(s['anno_path'])
+            for digit in digit_info:
+                x1, y1, x2, y2 = map(int, digit['bbox'])
+                h, w = img.shape[:2]
+                x1, y1 = max(0, x1), max(0, y1)
+                x2, y2 = min(w, x2), min(h, y2)
+                
+                crop = img[y1:y2, x1:x2]
+                if crop.size > 0:
+                    crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
+                    self.crops.append((crop, digit['label']))
+                    
+        print(f"Extracted {len(self.crops)} digits for classification.")
+
+    def __len__(self):
+        return len(self.crops)
+
+    def __getitem__(self, idx):
+        crop, label = self.crops[idx]
+        pil_crop = T.ToPILImage()(crop)
+        if self.transform:
+            return self.transform(pil_crop), label
+        return pil_crop, label
 
 
 def build_digit_model() -> nn.Module:
@@ -53,7 +96,7 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
     if not os.path.isdir(data_dir):
         raise FileNotFoundError(f"Could not find classification data folder: {data_dir}")
 
-    dataset = datasets.ImageFolder(root=data_dir, transform=transform)
+    dataset = DigitDataset(data_dir, transform=transform)
     total = len(dataset)
     if total == 0:
         raise RuntimeError(f"No labeled digits found in {data_dir}. Run data generation first.")
@@ -74,7 +117,8 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
         running_loss = 0.0
         correct = 0
         count = 0
-        for images, labels in train_loader:
+        pbar = tqdm(train_loader, desc=f"Epoch {ep+1}/{epochs} [Train]")
+        for images, labels in pbar:
             images = images.to(device)
             labels = labels.to(device)
 
@@ -88,6 +132,9 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
             preds = outputs.argmax(dim=1)
             correct += int((preds == labels).sum())
             count += images.size(0)
+            
+            # Update progress bar with current loss
+            pbar.set_postfix({'loss': f'{loss.item():.4f}'})
 
         avg_loss = running_loss / count if count > 0 else 0.0
         acc = correct / count if count > 0 else 0.0
@@ -97,7 +144,7 @@ def load_classifier(model_path: str, data_dir: str, epochs: int = 3, batch_size:
         val_correct = 0
         val_count = 0
         with torch.no_grad():
-            for images, labels in val_loader:
+            for images, labels in tqdm(val_loader, desc=f"Epoch {ep+1}/{epochs} [Val]"):
                 images = images.to(device)
                 labels = labels.to(device)
                 outputs = model(images)
@@ -150,8 +197,8 @@ def predict_on_image(model: nn.Module, image_path: str, globalbb_df: pd.DataFram
     model.eval()
 
     rows = []
-    grouped = globalbb_df.groupby("image_path")
-    for image_path, group in grouped:
+    grouped = list(globalbb_df.groupby("image_path"))
+    for image_path, group in tqdm(grouped, desc="Predicting digits"):
         if not os.path.exists(image_path):
             continue
         img = cv2.imread(image_path)
@@ -197,7 +244,8 @@ def create_labeled_images(predictions_df: pd.DataFrame, output_dir: str):
     out_visual = os.path.join(output_dir, "digit_labeled")
     os.makedirs(out_visual, exist_ok=True)
 
-    for image_path, group in predictions_df.groupby("image_path"):
+    grouped = list(predictions_df.groupby("image_path"))
+    for image_path, group in tqdm(grouped, desc="Labeling digit images"):
         if not os.path.exists(image_path):
             continue
         img = cv2.imread(image_path)
@@ -223,7 +271,7 @@ def main():
     parser.add_argument("--globalbb-csv", default=os.path.join("outputs", "bbox_comparison", "globalbb_predictions.csv"), help="GlobalBB predictions CSV path")
     parser.add_argument("--output-dir", default=os.path.join("outputs", "bbox_comparison"), help="Output directory")
     parser.add_argument("--model-path", default=os.path.join("outputs", "bbox_comparison", "digit_classifier.pth"), help="Saved digit classifier weights")
-    parser.add_argument("--classification-data", default=os.path.join("data", "classification", "single_digits"), help="Digit label training data")
+    parser.add_argument("--classification-data", default=os.path.join("data", "digits_data"), help="Unified digits_data directory")
     parser.add_argument("--epochs", type=int, default=3, help="Epochs to train digit classifier when missing")
     parser.add_argument("--batch-size", type=int, default=64, help="Batch size for training")
     args = parser.parse_args()
