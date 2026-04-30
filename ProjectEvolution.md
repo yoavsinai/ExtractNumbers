@@ -99,7 +99,7 @@ This section documents the iterative improvements made to the **ExtractNumbers**
 | Metric | Stage 3 Value | 
 | :--- | :--- | 
 | **Mean IoU** | **0.7390** | 
-| **Precision** | **98.45%**⬆️ | 
+| **Precision** | **98.45%** ⬆️ | 
 | **Recall** | **98.22%** ⬆️| 
 
 > **Note:** The integration of AI sharpening significantly improved the localization precision by reducing artifacts that previously confused the detector.
