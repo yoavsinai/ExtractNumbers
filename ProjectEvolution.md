@@ -25,7 +25,7 @@ This section documents the iterative improvements made to the **ExtractNumbers**
 | Synthetic | 64.08% |
 
 **Example Result:**
-<img src="assets/example1.png" width="40%">
+<img src="assets/example1.png" width="400">
 
 
 > **Conclusion:** While the pipeline was functional, the model struggled significantly with "Natural" images and lacked the precision to isolate overlapping digits.
