@@ -25,6 +25,8 @@ This section documents the iterative improvements made to the **ExtractNumbers**
 | Synthetic | 64.08% |
 
 **Example Result:**
+
+
 <img src="assets/example1.png" width="400">
 
 
