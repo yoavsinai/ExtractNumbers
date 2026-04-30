@@ -58,7 +58,7 @@ def main():
     
     GLOBAL_MODEL_PATH = os.path.join(TRAINED_DIR, "globalbb.pt")
     INDIV_MODEL_PATH = os.path.join(TRAINED_DIR, "individualbb.pt")
-    CLASSIFIER_PATH = os.path.join(TRAINED_DIR, "digit_classifier.pth")
+    CLASSIFIER_PATH = os.path.join(TRAINED_DIR, "digit_recognizer.pt")
     DATA_ROOT = args.data_root
     
     device = get_device()
@@ -76,12 +76,13 @@ def main():
     classifier.to(device).eval()
     print("✓ All models loaded successfully.")
 
-    # 2. Prepare Samples
-    samples = iter_new_samples(DATA_ROOT)
+    # 2. Prepare Samples - Convert iterator to list first
+    print("\nPreparing samples...")
+    all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(samples)
-    eval_samples = samples[:args.max_samples]
+    random.shuffle(all_samples)
+    eval_samples = all_samples[:args.max_samples]
     
     results = []
     
@@ -217,14 +218,23 @@ def main():
     print(f"Stage 3 (Indiv)  Mean IoU:    {df[df['has_digit_boxes'] == True]['s2_iou_avg'].mean():.4f}")
     
     print("\n📈 PERFORMANCE BY CATEGORY:")
-    cat_stats = df.groupby('category').apply(lambda x: pd.Series({
-        'Seq Acc': x[x['has_label'] == True]['correct'].mean(),
-        'Digit Acc': x[x['has_digit_boxes'] == True]['digit_acc'].mean(),
-        'S1 IoU': x['s1_iou'].mean(),
-        'S2 IoU': x[x['has_digit_boxes'] == True]['s2_iou_avg'].mean(),
-        'Count': len(x),
-        'Labeled': x['has_digit_boxes'].sum()
-    }))
+    # Create the grouped stats efficiently without triggering DataFrameGroupBy.apply warnings
+    cat_stats = pd.DataFrame({
+        'Seq Acc': df[df['has_label'] == True].groupby('category')['correct'].mean(),
+        'Digit Acc': df[df['has_digit_boxes'] == True].groupby('category')['digit_acc'].mean(),
+        'S1 IoU': df.groupby('category')['s1_iou'].mean(),
+        'S2 IoU': df[df['has_digit_boxes'] == True].groupby('category')['s2_iou_avg'].mean(),
+        'Count': df.groupby('category').size(),
+        'Labeled': df.groupby('category')['has_digit_boxes'].sum()
+    }).reindex(df['category'].unique())
+
+    cat_stats['Count'] = cat_stats['Count'].fillna(0).astype(int)
+    cat_stats['Labeled'] = cat_stats['Labeled'].fillna(0).astype(int)
+    
+    # Format metrics cleanly, turning NaNs into 'N/A'
+    for col in ['Seq Acc', 'Digit Acc', 'S1 IoU', 'S2 IoU']:
+        cat_stats[col] = cat_stats[col].apply(lambda x: f"{x:.4f}" if pd.notna(x) else "N/A")
+
     print(cat_stats)
 
     # 5. Dashboard Generation

@@ -27,7 +27,7 @@ def main():
 
     # Paths
     TRAINED_DIR = os.path.join(BASE_DIR, "outputs", "trained_models")
-    CLASSIFIER_PATH = os.path.join(TRAINED_DIR, "digit_classifier.pth")
+    CLASSIFIER_PATH = os.path.join(TRAINED_DIR, "digit_recognizer.pt")
     DATA_ROOT = os.path.join(BASE_DIR, "data", "digits_data")
     REPORTS_DIR = os.path.join(BASE_DIR, "outputs", "reports")
     os.makedirs(REPORTS_DIR, exist_ok=True)
@@ -46,11 +46,11 @@ def main():
     classifier.load_state_dict(torch.load(CLASSIFIER_PATH, map_location=device))
     classifier.to(device).eval()
     
-    samples = iter_new_samples(DATA_ROOT)
+    all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(samples)
-    eval_samples = samples[:args.max_samples]
+    random.shuffle(all_samples)
+    eval_samples = all_samples[:args.max_samples]
     
     results = []
     y_true = []
@@ -61,8 +61,8 @@ def main():
         if img is None: continue
         
         # Use GT boxes to isolate classification performance
-        gt_global_boxes, digit_info, has_digits = get_gt_from_anno(s['anno_path'])
-        if not gt_global_boxes or not has_digits: continue
+        gt_global_boxes, digit_info, has_digit_boxes, _ = get_gt_from_anno(s['anno_path'])
+        if not gt_global_boxes or not has_digit_boxes: continue
         
         gx1, gy1, gx2, gy2 = map(int, gt_global_boxes[0])
         h, w = img.shape[:2]
