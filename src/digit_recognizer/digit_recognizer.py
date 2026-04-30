@@ -39,7 +39,7 @@ class DigitDataset(torch.utils.data.Dataset):
             img = cv2.imread(s['image_path'])
             if img is None: continue
             
-            _, digit_info = get_gt_from_anno(s['anno_path'])
+            _, digit_info, _, _ = get_gt_from_anno(s['anno_path'])
             for digit in digit_info:
                 x1, y1, x2, y2 = map(int, digit['bbox'])
                 h, w = img.shape[:2]

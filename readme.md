@@ -134,7 +134,7 @@ To ensure clarity across all reports, the following metrics are used:
 ---
 
 ### How to Run Evaluations
-The suite is divided into scripts for isolated performance analysis:
+The suite is divided into scripts for isolated performance analysis. You can now specify custom data sources for evaluation:
 
 ```bash
 # Run ALL evaluations (Stages 1-4 + Full End-to-End Pipeline)
@@ -142,7 +142,26 @@ python src/evaluation/evaluate_all.py --max-samples 100
 
 # Full End-to-End pipeline benchmark with error analysis dashboard
 python src/evaluation/eval_pipeline.py --max-samples 500 --save-viz --analyze-errors
+
+# Evaluate on custom datasets (e.g., the Trains OCR dataset)
+python src/evaluation/eval_pipeline.py --data-root data/ocr_trains --output-dir outputs/trains_eval
 ```
+
+## 📊 Dataset Integration
+The pipeline now supports "Weakly Labeled" datasets—data that contains global number/plate bounding boxes and sequence labels but lacks fine-grained individual digit annotations.
+
+| Dataset | Type | Samples | Command to Prepare |
+| :--- | :--- | :---: | :--- |
+| **Trains OCR** | Weakly Labeled | 13 | `python src/data/ocr_trains.py` |
+| **Race Numbers** | Fully Labeled | 10,000+ | `python src/prep_data.py --datasets race_numbers` |
+| **Handwritten** | Fully Labeled | 10,000+ | `python src/prep_data.py --datasets handwritten` |
+| **SVHN / Digits** | Fully Labeled | 200,000+ | `python src/prep_data.py --datasets svhn` |
+
+### Handling Weakly Labeled Data
+When a dataset is identified as weakly labeled (`has_digit_boxes=False` in `annotations.json`):
+1.  **Stage 1 (Global Detection)**: Evaluated as normal using Mean IoU.
+2.  **Stage 3 (Individual Detection)**: Skipped for metric calculation to avoid statistical contamination.
+3.  **End-to-End Accuracy**: Calculated by comparing the final OCR output with the ground truth sequence label.
 
 ### Pipeline Progression
 ![Full Pipeline Dashboard](assets/full_pipeline_progression.png)

@@ -47,7 +47,8 @@ def main():
         img = cv2.imread(s['image_path'])
         if img is None: continue
         
-        gt_global_boxes, _ = get_gt_from_anno(s['anno_path'])
+        global_boxes, _, _, _ = get_gt_from_anno(s['anno_path'])
+        if not has_digits: continue
         
         res = model.predict(source=img, imgsz=256, verbose=False)
         pred_global = None

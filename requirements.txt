@@ -35,3 +35,4 @@ kagglesdk
 pycryptodomex
 mysql-connector-python
 ultralytics
+dotenv

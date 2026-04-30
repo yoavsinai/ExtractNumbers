@@ -49,8 +49,8 @@ def main():
         if img is None: continue
         
         # Use GT Global BB to isolate Stage 3
-        gt_global_boxes, digit_info = get_gt_from_anno(s['anno_path'])
-        if not gt_global_boxes: continue
+        gt_global_boxes, digit_info, _, has_digits = get_gt_from_anno(s['anno_path'])
+        if not digit_info or not has_digits: continue
         
         gx1, gy1, gx2, gy2 = map(int, gt_global_boxes[0])
         h, w = img.shape[:2]

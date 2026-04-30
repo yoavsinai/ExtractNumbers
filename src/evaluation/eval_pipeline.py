@@ -18,16 +18,7 @@ from image_preprocessing.digit_preprocessor import enhance_digit
 from utils.data_utils import iter_new_samples, get_gt_from_anno
 from utils.metrics import calculate_iou
 
-def get_full_gt_number(anno_path):
-    """Reconstruct the number sequence from annotations.json."""
-    with open(anno_path, 'r') as f:
-        data = json.load(f)
-    digits = []
-    for number in data.get('detected_numbers', []):
-        for digit in number.get('digits', []):
-            digits.append({'x': digit['bounding_box']['x'], 'label': str(digit['label'])})
-    digits.sort(key=lambda d: d['x'])
-    return "".join([d['label'] for d in digits])
+# Redundant get_full_gt_number removed as get_gt_from_anno now returns the full label.
 
 def calculate_digit_accuracy(gt, pred):
     """Calculate positioning accuracy and succession rate."""
@@ -54,19 +45,21 @@ def main():
     parser.add_argument("--max-samples", type=int, default=500)
     parser.add_argument("--save-viz", action="store_true", help="Save the evaluation dashboard image")
     parser.add_argument("--analyze-errors", action="store_true", help="Generate detailed error analysis visualization")
+    parser.add_argument("--data-root", type=str, default=os.path.join(BASE_DIR, "data", "digits_data"), help="Path to the dataset root")
+    parser.add_argument("--output-dir", type=str, default=os.path.join(BASE_DIR, "outputs"), help="Base directory for outputs")
     args = parser.parse_args()
 
     # Structured Paths
     TRAINED_DIR = os.path.join(BASE_DIR, "outputs", "trained_models")
-    VIS_DIR = os.path.join(BASE_DIR, "outputs", "visualizations")
-    REPORTS_DIR = os.path.join(BASE_DIR, "outputs", "reports")
+    VIS_DIR = os.path.join(args.output_dir, "visualizations")
+    REPORTS_DIR = os.path.join(args.output_dir, "reports")
     os.makedirs(VIS_DIR, exist_ok=True)
     os.makedirs(REPORTS_DIR, exist_ok=True)
     
     GLOBAL_MODEL_PATH = os.path.join(TRAINED_DIR, "globalbb.pt")
     INDIV_MODEL_PATH = os.path.join(TRAINED_DIR, "individualbb.pt")
     CLASSIFIER_PATH = os.path.join(TRAINED_DIR, "digit_classifier.pth")
-    DATA_ROOT = os.path.join(BASE_DIR, "data", "digits_data")
+    DATA_ROOT = args.data_root
     
     device = get_device()
     
@@ -100,8 +93,8 @@ def main():
         if img is None: continue
         
         # Ground Truth
-        gt_global_boxes, digit_info = get_gt_from_anno(s['anno_path'])
-        gt_number = get_full_gt_number(s['anno_path'])
+        gt_global_boxes, digit_info, has_digit_boxes, gt_number = get_gt_from_anno(s['anno_path'])
+        has_label = bool(gt_number)
         
         # -- Step 1: GlobalBB Detection --
         res1 = global_model.predict(source=img, imgsz=256, verbose=False)
@@ -116,7 +109,14 @@ def main():
                 s1_iou = calculate_iou(gt_global_boxes[0], pred_global)
         
         if pred_global is None:
-            results.append({'sample_id': s['sample_id'], 'gt': gt_number, 'pred': '', 'correct': False, 'category': s['category'], 's1_iou': 0, 'digit_acc': 0})
+            res_entry = {
+                'sample_id': s['sample_id'], 'gt': gt_number, 'pred': '', 
+                'correct': False if has_label else None, 
+                'category': s['category'], 's1_iou': 0, 'digit_acc': 0 if has_digit_boxes else None,
+                'has_digit_boxes': has_digit_boxes,
+                'has_label': has_label
+            }
+            results.append(res_entry)
             continue
             
         gx1, gy1, gx2, gy2 = map(int, pred_global)
@@ -126,7 +126,14 @@ def main():
         crop = img[gy1:gy2, gx1:gx2]
         
         if crop.size == 0:
-            results.append({'sample_id': s['sample_id'], 'gt': gt_number, 'pred': '', 'correct': False, 'category': s['category'], 's1_iou': s1_iou, 'digit_acc': 0})
+            res_entry = {
+                'sample_id': s['sample_id'], 'gt': gt_number, 'pred': '', 
+                'correct': False if has_label else None, 
+                'category': s['category'], 's1_iou': s1_iou, 'digit_acc': 0 if has_digit_boxes else None,
+                'has_digit_boxes': has_digit_boxes,
+                'has_label': has_label
+            }
+            results.append(res_entry)
             continue
             
         # -- Step 2: Sharpening --
@@ -172,19 +179,22 @@ def main():
                 continue
         
         pred_number = "".join(predicted_digits)
-        correct_digits, total_gt_digits = calculate_digit_accuracy(gt_number, pred_number)
+        correct_digits, total_gt_digits, succession_rate = calculate_digit_accuracy(gt_number, pred_number)
         
         results.append({
             'sample_id': s['sample_id'],
-            'gt': gt_number,
+            'gt': gt_number if has_label else "N/A",
             'pred': pred_number,
-            'correct': pred_number == gt_number,
-            'digit_acc': correct_digits / total_gt_digits if total_gt_digits > 0 else 0,
-            'correct_digits': correct_digits,
-            'total_digits': total_gt_digits,
+            'correct': (pred_number == gt_number) if has_label else None,
+            'digit_acc': (correct_digits / total_gt_digits) if has_digit_boxes and total_gt_digits > 0 else None,
+            'succession_rate': succession_rate if has_digit_boxes else None,
+            'correct_digits': correct_digits if has_digit_boxes else None,
+            'total_digits': total_gt_digits if has_digit_boxes else None,
             'category': s['category'],
             's1_iou': s1_iou,
-            's2_iou_avg': np.mean(s2_ious) if s2_ious else 0,
+            's2_iou_avg': np.mean(s2_ious) if s2_ious and has_digit_boxes else None,
+            'has_digit_boxes': has_digit_boxes,
+            'has_label': has_label,
             # Data for visualization
             'vis_img': img,
             'vis_crop': crop,
@@ -200,26 +210,21 @@ def main():
     print("\n" + "="*50)
     print("📊 FINAL PIPELINE BENCHMARK")
     print("="*50)
-    print(f"Full Sequence Accuracy:       {df['correct'].mean():.2%}")
-    print(f"Mean Digit Accuracy (Pos):    {df['digit_acc'].mean():.2%}")
-    print(f"Single Digit Succession Rate: {df['succession_rate'].mean():.2%}")
-    print(f"Stage 1 (Global) Mean IoU:    {df['s1_iou'].mean():.4f}")
-    print(f"Stage 3 (Indiv)  Mean IoU:    {df['s2_iou_avg'].mean():.4f}")
+    print(f"Full Sequence Accuracy:       {df[df['has_label'] == True]['correct'].mean():.2%}")
+    print(f"Mean Digit Accuracy (Pos):    {df[df['has_digit_boxes'] == True]['digit_acc'].mean():.2%}")
+    # print(f"Single Digit Succession Rate: {df['succession_rate'].mean():.2%}") 
+    print(f"Stage 1 (Global) Mean IoU:    {df['s1_iou'].mean():.4f} (All Samples)")
+    print(f"Stage 3 (Indiv)  Mean IoU:    {df[df['has_digit_boxes'] == True]['s2_iou_avg'].mean():.4f}")
     
     print("\n📈 PERFORMANCE BY CATEGORY:")
-    cat_stats = df.groupby('category').agg({
-        'correct': 'mean',
-        'digit_acc': 'mean',
-        'succession_rate': 'mean',
-        's1_iou': 'mean',
-        's2_iou_avg': 'mean'
-    }).rename(columns={
-        'correct': 'Seq Acc',
-        'digit_acc': 'Digit Acc',
-        'succession_rate': 'Succ Rate',
-        's1_iou': 'S1 IoU',
-        's2_iou_avg': 'S2 IoU'
-    })
+    cat_stats = df.groupby('category').apply(lambda x: pd.Series({
+        'Seq Acc': x[x['has_label'] == True]['correct'].mean(),
+        'Digit Acc': x[x['has_digit_boxes'] == True]['digit_acc'].mean(),
+        'S1 IoU': x['s1_iou'].mean(),
+        'S2 IoU': x[x['has_digit_boxes'] == True]['s2_iou_avg'].mean(),
+        'Count': len(x),
+        'Labeled': x['has_digit_boxes'].sum()
+    }))
     print(cat_stats)
 
     # 5. Dashboard Generation

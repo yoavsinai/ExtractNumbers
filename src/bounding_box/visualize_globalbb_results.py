@@ -69,7 +69,7 @@ def main():
             # Draw ground-truth box (green).
             from utils.data_utils import get_gt_from_anno
             if os.path.exists(anno_path):
-                global_boxes, _ = get_gt_from_anno(anno_path)
+                global_boxes, _, _, _ = get_gt_from_anno(anno_path)
                 for x1, y1, x2, y2 in global_boxes:
                     ax.add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='lime', linewidth=3))
             

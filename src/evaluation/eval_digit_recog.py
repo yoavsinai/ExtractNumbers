@@ -61,8 +61,8 @@ def main():
         if img is None: continue
         
         # Use GT boxes to isolate classification performance
-        gt_global_boxes, digit_info = get_gt_from_anno(s['anno_path'])
-        if not gt_global_boxes: continue
+        gt_global_boxes, digit_info, has_digits = get_gt_from_anno(s['anno_path'])
+        if not gt_global_boxes or not has_digits: continue
         
         gx1, gy1, gx2, gy2 = map(int, gt_global_boxes[0])
         h, w = img.shape[:2]
@@ -137,8 +137,8 @@ def main():
             for s in eval_samples[:50]: # Test on smaller subset for speed
                  img = cv2.imread(s['image_path'])
                  if img is None: continue
-                 gt_global_boxes, digit_info = get_gt_from_anno(s['anno_path'])
-                 if not gt_global_boxes: continue
+                 gt_global_boxes, digit_info, has_digits, _ = get_gt_from_anno(s['anno_path'])
+                 if not gt_global_boxes or not has_digits: continue
                  gx1, gy1, gx2, gy2 = map(int, gt_global_boxes[0])
                  crop = img[gy1:gy2, gx1:gx2]
                  if crop.size == 0: continue

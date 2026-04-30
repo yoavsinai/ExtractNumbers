@@ -76,9 +76,9 @@ def make_individualbb_dataset(
         if img is None: return 0
         
         # 1. Get the global bounding boxes and digit boxes
-        global_boxes, digit_info = get_gt_from_anno(anno_path)
+        global_boxes, digit_info, has_digit_boxes, _ = get_gt_from_anno(anno_path)
         
-        if not global_boxes or not digit_info:
+        if not global_boxes or not has_digit_boxes:
             return 0
         
         # Use the first global box found (usually only one for number sequence)

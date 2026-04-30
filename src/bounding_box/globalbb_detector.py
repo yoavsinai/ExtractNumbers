@@ -98,7 +98,7 @@ def make_globalbb_dataset(
             return False
         h, w = img.shape[:2]
 
-        global_boxes, _ = get_gt_from_anno(anno_path)
+        global_boxes, _, has_digit_boxes, _ = get_gt_from_anno(anno_path)
 
         if not global_boxes:
             return False
@@ -136,7 +136,7 @@ def make_globalbb_dataset(
                 cat = s["category"]
                 if category_counts[cat] < 3:
                     img = cv2.imread(s["image_path"])
-                    global_boxes, _ = get_gt_from_anno(s["anno_path"])
+                    global_boxes, _, _, _ = get_gt_from_anno(s["anno_path"])
                     
                     # Draw for preview
                     preview_img = img.copy()
@@ -221,7 +221,7 @@ def make_digit_globalbb_dataset(
             return 0
         h, w = img.shape[:2]
 
-        _, digit_info = get_gt_from_anno(anno_path)
+        _, digit_info, _, _ = get_gt_from_anno(anno_path)
 
         # Skip images where the mask contains no valid digit regions.
         if not digit_info:
@@ -337,7 +337,7 @@ def save_digit_gt_boxes(samples: List[Dict[str, str]], output_csv: str, min_area
     """Save per-digit ground-truth boxes extracted from annotations.json."""
     rows: List[Dict[str, object]] = []
     for s in tqdm(samples, desc="Extracting digit GT boxes from annotations", ncols=90):
-        _, digit_info = get_gt_from_anno(s["anno_path"])
+        _, digit_info, _, _ = get_gt_from_anno(s["anno_path"])
         for idx, digit in enumerate(digit_info):
             x1, y1, x2, y2 = digit['bbox']
             rows.append({

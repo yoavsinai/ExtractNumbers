@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 # Ensure we can import the data loaders from the local directory
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from data import svhn, race_numbers, handwritten
+from data import svhn, race_numbers, handwritten, ocr_trains
 
 def _safe_rmtree(path, base_dir, label):
     """Remove *path* only when it is a real directory inside *base_dir*."""
@@ -35,7 +35,7 @@ def main():
         help="Delete existing processed data before running.",
     )
     parser.add_argument("--limit", type=int, default=None, help="Limit samples per dataset.")
-    parser.add_argument("--datasets", nargs="+", default=["svhn", "race_numbers", "handwritten"], help="Datasets to process.")
+    parser.add_argument("--datasets", nargs="+", default=["svhn", "race_numbers", "handwritten", "ocr_trains"], help="Datasets to process.")
     parser.add_argument("--no-augment", action="store_true", help="Skip the high-level augmentation phase.")
     args, unknown = parser.parse_known_args()
 
@@ -58,6 +58,12 @@ def main():
 
     if "handwritten" in args.datasets:
         handwritten.prepare(output_dir, limit=args.limit)
+
+
+
+    if "ocr_trains" in args.datasets:
+        ocr_trains.prepare(output_dir, limit=args.limit)
+
 
     if not args.no_augment:
         print("\n--- PHASE 2: Applying High-Level Augmentations ---")

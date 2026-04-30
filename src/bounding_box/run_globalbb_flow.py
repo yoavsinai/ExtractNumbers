@@ -82,7 +82,7 @@ def preview_ground_truth():
             ax = axes[i, j] if len(categories) > 1 else axes[j]
             ax.imshow(img)
             
-            global_boxes, _ = get_gt_from_anno(s['anno_path'])
+            global_boxes, _, _, _ = get_gt_from_anno(s['anno_path'])
             for x1, y1, x2, y2 in global_boxes:
                 ax.add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='lime', linewidth=3))
             

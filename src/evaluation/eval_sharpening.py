@@ -41,7 +41,7 @@ def main():
         if img is None: continue
         
         # Use Ground Truth Global BB for sharpening evaluation to isolate the stage
-        gt_global_boxes, _ = get_gt_from_anno(s['anno_path'])
+        gt_global_boxes, _, _, _ = get_gt_from_anno(s['anno_path'])
         if not gt_global_boxes: continue
         
         gx1, gy1, gx2, gy2 = map(int, gt_global_boxes[0])

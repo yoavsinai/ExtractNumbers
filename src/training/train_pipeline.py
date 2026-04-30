@@ -105,7 +105,7 @@ def main():
             cat = s["category"]
             if category_counts.get(cat, 0) < 3:
                 img = cv2.imread(s["image_path"])
-                global_boxes, _ = get_gt_from_anno(s["anno_path"])
+                global_boxes, _, _, _ = get_gt_from_anno(s['anno_path'])
                 for x1, y1, x2, y2 in global_boxes:
                     cv2.rectangle(img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
                 cv2.putText(img, cat, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
@@ -286,7 +286,7 @@ def main():
         # GT (Green) from annotations.json
         anno_path = sample['image_path'].replace("original.png", "annotations.json")
         if os.path.exists(anno_path):
-            global_boxes, _ = get_gt_from_anno(anno_path)
+            global_boxes, _, _, _ = get_gt_from_anno(anno_path)
             for x1, y1, x2, y2 in global_boxes:
                 axes[i, 1].add_patch(plt.Rectangle((x1, y1), x2-x1, y2-y1, fill=False, edgecolor='lime', linewidth=2, linestyle='--'))
 
@@ -313,7 +313,7 @@ def main():
         
         # GT for individual digits (Green) from annotations.json
         if os.path.exists(anno_path):
-            _, digit_info = get_gt_from_anno(anno_path)
+            _, digit_info, _, _ = get_gt_from_anno(anno_path)
             cx1, cy1, cx2, cy2 = res['crop_coords']
             for digit in digit_info:
                 dx1, dy1, dx2, dy2 = digit['bbox']
