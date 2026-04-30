@@ -3,6 +3,7 @@ tqdm
 requests
 urllib3
 PyYAML
+python-dotenv
 
 # Data Science & ML
 numpy
@@ -34,3 +35,4 @@ kagglesdk
 pycryptodomex
 mysql-connector-python
 ultralytics
+dotenv

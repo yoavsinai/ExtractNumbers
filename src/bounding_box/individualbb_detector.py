@@ -18,22 +18,18 @@ except ImportError:
 
 import sys
 import warnings
-# Silence logging and warnings
-os.environ['TQDM_DISABLE'] = '1'
-os.environ['ULTRALYTICS_VERBOSE'] = 'False'
+# Use default logging to allow progress bars
+import logging
+import warnings
 warnings.filterwarnings('ignore')
-try:
-    set_logging('ultralytics', verbose=False)
-    LOGGER.setLevel(logging.ERROR)
-except NameError:
-    pass
 # Ensure we can import from src
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if BASE_DIR not in sys.path:
     sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from image_preprocessing.digit_preprocessor import enhance_digit
-from bounding_box.globalbb_detector import _read_mask_grayscale, bbox_from_mask, extract_digit_bboxes, ensure_dir, stratified_split
+from bounding_box.globalbb_detector import ensure_dir, stratified_split
+from utils.data_utils import iter_new_samples, get_gt_from_anno
 
 def make_individualbb_dataset(
     samples: List[Dict[str, str]],
@@ -68,7 +64,7 @@ def make_individualbb_dataset(
 
     def process_one(split: str, sample: Dict[str, str]) -> int:
         image_path = sample["image_path"]
-        mask_path = sample["mask_path"]
+        anno_path = sample["anno_path"]
         category = sample["category"]
         idx = sample["sample_id"].split("/", 1)[1]
         stem = f"{category}_{idx}"
@@ -77,18 +73,17 @@ def make_individualbb_dataset(
         dst_lbl_path = os.path.join(labels_dir, split, f"{stem}.txt")
 
         img = cv2.imread(image_path)
-        mask = _read_mask_grayscale(mask_path)
+        if img is None: return 0
         
-        # 1. Get the global bounding box (union of all digits)
-        # We use the morphological dilation logic to match Stage 1 ground truth
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (25, 5))
-        dilated_mask = cv2.dilate(mask, kernel, iterations=1)
-        g_bbox = bbox_from_mask(dilated_mask)
+        # 1. Get the global bounding boxes and digit boxes
+        global_boxes, digit_info, has_digit_boxes, _ = get_gt_from_anno(anno_path)
         
-        if not g_bbox:
+        if not global_boxes or not has_digit_boxes:
             return 0
         
-        gx1, gy1, gx2, gy2 = g_bbox
+        # Use the first global box found (usually only one for number sequence)
+        gx1, gy1, gx2, gy2 = global_boxes[0]
+        
         # Add a small margin (5%)
         gw, gh = gx2 - gx1, gy2 - gy1
         margin_x = int(gw * 0.05)
@@ -100,24 +95,20 @@ def make_individualbb_dataset(
         gx2 = min(W, gx2 + margin_x)
         gy2 = min(H, gy2 + margin_y)
         
-        crop = img[gy1:gy2, gx1:gx2]
+        crop = img[int(gy1):int(gy2), int(gx1):int(gx2)]
         if crop.size == 0:
             return 0
             
         # 2. Sharpen the crop
-        # We use color sharpening for YOLO feature extraction
         sharpened = enhance_digit(crop, upscale_factor=2.0)
         
-        # 3. Get individual digit boxes and translate
-        digit_boxes = extract_digit_bboxes(mask, min_area=min_area)
-        if not digit_boxes:
-            return 0
-            
+        # 3. Translate digit boxes
         cw = gx2 - gx1
         ch = gy2 - gy1
         
         valid_digits = []
-        for (dx1, dy1, dx2, dy2) in digit_boxes:
+        for digit in digit_info:
+            dx1, dy1, dx2, dy2 = digit['bbox']
             # Map to crop coordinate
             nx1 = max(0, dx1 - gx1)
             ny1 = max(0, dy1 - gy1)
@@ -126,7 +117,7 @@ def make_individualbb_dataset(
             
             # Check if digit is actually inside the crop
             if nx2 > nx1 and ny2 > ny1:
-                # YOLO format: cls, x_center, y_center, width, height (normalized to crop size)
+                # YOLO format: cls, x_center, y_center, width, height
                 xc = (nx1 + nx2) / 2 / cw
                 yc = (ny1 + ny2) / 2 / ch
                 bw = (nx2 - nx1) / cw
@@ -148,7 +139,7 @@ def make_individualbb_dataset(
 
     for split_name, split_samples in [("train", train_samples), ("val", val_samples)]:
         count = 0
-        for s in split_samples:
+        for s in tqdm(split_samples, desc=f"Generating Sharpened IndividualBB {split_name}"):
             process_one(split_name, s)
             
     data_yaml_path = os.path.join(individualbb_out_root, "data.yaml")
@@ -189,7 +180,7 @@ def train_individualbb(data_yaml, output_dir, epochs=20, batch=16, img_size=256,
         project=os.path.join(output_dir, "individualbb_runs"),
         name="run1",
         exist_ok=True,
-        verbose=False,
+        verbose=True,
         plots=False,
         save=True
     )
@@ -197,17 +188,23 @@ def train_individualbb(data_yaml, output_dir, epochs=20, batch=16, img_size=256,
 
 def main():
     parser = argparse.ArgumentParser(description="Individual Digit Detection Trainer (Stage 4)")
-    parser.add_argument("--dataset-root", default=os.path.join(BASE_DIR, "data", "segmentation"))
+    parser.add_argument("--dataset-root", default=os.path.join(BASE_DIR, "data", "digits_data"))
     parser.add_argument("--output-dir", default=os.path.join(BASE_DIR, "outputs", "bbox_comparison"))
     parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--skip-train", action="store_true")
+    parser.add_argument("--skip-train", action="store_true", help="Skip training if weights folder exists.")
+    parser.add_argument("--force-train", action="store_true", help="Force training even if weights exist.")
     parser.add_argument("--prepare-only", action="store_true", help="Only generate sharpened dataset, no training.")
     parser.add_argument("--train-only", action="store_true", help="Only run training, skip dataset generation.")
     args = parser.parse_args()
+    
+    dataset_root = os.path.abspath(args.dataset_root)
+    if not os.path.isdir(dataset_root):
+        raise FileNotFoundError(f"Missing dataset root: {dataset_root}")
+    
+    categories = [d for d in os.listdir(dataset_root) if os.path.isdir(os.path.join(dataset_root, d))]
+    print(f"Found datasets for IndividualBB: {categories}")
 
-    categories = ["natural", "synthetic", "handwritten"]
-    from bounding_box.globalbb_detector import iter_samples
-    samples = iter_samples(args.dataset_root, categories)
+    samples = iter_new_samples(dataset_root)
     
     individual_out_root = os.path.join(args.output_dir, "individualbb_dataset")
     weights_path = os.path.join(args.output_dir, "individualbb_run", "weights", "best.pt")
@@ -230,7 +227,8 @@ def main():
                 shutil.copy2(best_pt, weights_path)
         return
 
-    if not args.skip_train or not os.path.exists(weights_path):
+    # Logic: Only train if weights are missing OR --force-train is specified
+    if (not os.path.exists(weights_path)) or args.force_train:
         make_individualbb_dataset(samples, categories, individual_out_root, 0.8, 42)
         data_yaml = os.path.join(individual_out_root, "data.yaml")
         train_individualbb(data_yaml, args.output_dir, epochs=args.epochs)
