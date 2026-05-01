@@ -20,7 +20,7 @@ def run_script(script_name, args=[]):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Run all evaluation stages")
-    parser.add_argument("--max-samples", type=int, default=100, help="Max samples for each stage")
+    parser.add_argument("--max-samples", type=int, default=1000, help="Max samples for each stage")
     args = parser.parse_args()
 
     stages = [
