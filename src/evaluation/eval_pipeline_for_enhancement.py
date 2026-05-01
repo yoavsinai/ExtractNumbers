@@ -15,7 +15,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from digit_recognizer.digit_recognizer import build_digit_model, get_device, preprocess_crop
-from image_preprocessing.digit_preprocessor import enhance_digit
+from image_preprocessing import get_enhancer
 from utils.data_utils import iter_new_samples, get_gt_from_anno
 from utils.metrics import calculate_iou
 
@@ -46,7 +46,7 @@ def main():
     parser.add_argument("--analyze-errors", action="store_true", help="Generate detailed error analysis visualization")
     parser.add_argument("--data-root", type=str, default=os.path.join(BASE_DIR, "data", "digits_data"), help="Path to the dataset root")
     parser.add_argument("--output-dir", type=str, default=os.path.join(BASE_DIR, "outputs"), help="Base directory for outputs")
-    parser.add_argument("--enhancement", type=str, default="opencv", choices=["esrgan", "opencv", "none"], help="Choose the sharpening/enhancement model")
+    parser.add_argument("--enhancement", type=str, default="unsharp_mask", choices=["esrgan", "unsharp_mask", "clahe", "none", "opencv"], help="Choose the sharpening/enhancement model ('opencv' is an alias for 'unsharp_mask')")
     args = parser.parse_args()
 
     # Structured Paths
@@ -63,8 +63,8 @@ def main():
     
     device = get_device()
     
-    # 1. Load Models
-    print("\n--- Phase 1: Loading Models ---")
+    # 1. Load Models and Enhancer
+    print("\n--- Phase 1: Loading Models & Enhancer ---")
     if not all([os.path.exists(p) for p in [GLOBAL_MODEL_PATH, INDIV_MODEL_PATH, CLASSIFIER_PATH]]):
         print("❌ Error: Missing trained model weights. Run the main pipeline first.")
         sys.exit(1)
@@ -74,7 +74,11 @@ def main():
     classifier = build_digit_model()
     classifier.load_state_dict(torch.load(CLASSIFIER_PATH, map_location=device))
     classifier.to(device).eval()
-    print("✓ All models loaded successfully.")
+    print("✓ Models loaded successfully.")
+
+    # Initialize the selected enhancer model once
+    print(f"✓ Initializing enhancement method: {args.enhancement}")
+    enhancer = get_enhancer(args.enhancement, scale_factor=2.0)
 
     # 2. Prepare Samples
     print("\nPreparing samples...")
@@ -152,9 +156,16 @@ def main():
             })
             continue
             
-        # -- Step 2: Sharpening (THE EXPERIMENTAL STAGE) --
-        sharp = enhance_digit(crop, upscale_factor=2.0, method=args.enhancement)
-        scale = 2.0 if args.enhancement in ["esrgan", "opencv"] else 1.0
+        # -- Step 2: Sharpening (using the new enhancer factory) --
+        sharp = enhancer.enhance(crop)
+        
+        # Determine scale factor based on output size for coordinate mapping
+        if crop.shape[0] > 0 and crop.shape[1] > 0:
+            scale_y = sharp.shape[0] / crop.shape[0]
+            scale_x = sharp.shape[1] / crop.shape[1]
+            scale = (scale_x + scale_y) / 2.0 # Assume uniform scaling
+        else:
+            scale = 1.0
         
         # -- Step 3: IndividualBB Detection --
         res2 = indiv_model.predict(source=sharp, imgsz=256, verbose=False)

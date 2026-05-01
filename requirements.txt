@@ -25,6 +25,7 @@ kagglehub
 paddlepaddle
 paddleocr
 realesrgan
+realesrgan
 
 # Other
 reportlab
