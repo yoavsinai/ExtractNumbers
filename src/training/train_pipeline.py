@@ -56,7 +56,7 @@ def main():
     parser.add_argument("--force-train", action="store_true", help="Force retraining of models.")
     parser.add_argument("--force-inference", action="store_true", help="Force re-running of all inference stages.")
     parser.add_argument("--viz-only", action="store_true", help="Just regenerate the progression visualization using 3 random samples.")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=25)
     args = parser.parse_args()
 
     # Define OUTPUT_DIR for YOLO training outputs

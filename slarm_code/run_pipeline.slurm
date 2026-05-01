@@ -10,6 +10,13 @@
 #SBATCH --mail-user=mati.halamish@gmail.com
 #SBATCH --mail-type=BEGIN,END,FAIL
 
+# ==============================================================================
+# PREREQUISITES BEFORE RUNNING THIS SCRIPT:
+# 1. Make sure to download the required data.
+# 2. Update the directory paths in this script (like --output, --error, and 'cd')
+#    to match the location where the project is saved on your machine.
+# ==============================================================================
+
 echo "Starting pipeline job on $(hostname) at $(date)"
 
 # Navigate to the project root
