@@ -3,6 +3,12 @@ from .none_enhancer import NoneEnhancer
 from .unsharp_mask_enhancer import UnsharpMaskEnhancer
 from .clahe_enhancer import CLAHEEnhancer
 from .esrgan_enhancer import ESRGANEnhancer
+from .edsr_enhancer import EDSREnhancer
+from .lapsrn_enhancer import LapSRNEnhancer
+from .realcugan_enhancer import RealCUGANEnhancer
+from .bsrgan_enhancer import BSRGANEnhancer
+from .swiniR_enhancer import SwinIREnhancer
+from .diffusion_upscaler_enhancer import DiffusionUpscalerEnhancer
 
 def get_enhancer(method: str, **kwargs) -> BaseEnhancer:
     """
@@ -10,7 +16,8 @@ def get_enhancer(method: str, **kwargs) -> BaseEnhancer:
 
     Args:
         method (str): The name of the enhancement method.
-                      Supported: 'none', 'unsharp_mask', 'clahe', 'esrgan', 'opencv'.
+                      Supported: 'none', 'unsharp_mask', 'clahe', 'esrgan', 'opencv',
+                                'edsr', 'lapsrn', 'realcugan', 'bsrgan', 'swiniR', 'diffusion'.
         **kwargs: Additional arguments to pass to the enhancer's constructor.
                   For example: scale_factor=2.0, clip_limit=2.0.
 
@@ -25,8 +32,22 @@ def get_enhancer(method: str, **kwargs) -> BaseEnhancer:
         return CLAHEEnhancer(**kwargs)
     elif method == "esrgan":
         return ESRGANEnhancer(**kwargs)
+    elif method == "edsr":
+        return EDSREnhancer(**kwargs)
+    elif method == "lapsrn":
+        return LapSRNEnhancer(**kwargs)
+    elif method == "realcugan":
+        return RealCUGANEnhancer(**kwargs)
+    elif method == "bsrgan":
+        return BSRGANEnhancer(**kwargs)
+    elif method == "swiniR":
+        return SwinIREnhancer(**kwargs)
+    elif method == "diffusion":
+        return DiffusionUpscalerEnhancer(**kwargs)
     # The old 'opencv' option is mapped to unsharp_mask for compatibility.
     elif method == "opencv":
         return UnsharpMaskEnhancer(**kwargs)
     else:
-        raise ValueError(f"Unknown enhancement method: '{method}'")
+        raise ValueError(f"Unknown enhancement method: '{method}'. "
+                        f"Supported methods: none, unsharp_mask, clahe, esrgan, edsr, lapsrn, "
+                        f"realcugan, bsrgan, swiniR, diffusion, opencv")
