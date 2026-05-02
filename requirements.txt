@@ -25,7 +25,8 @@ kagglehub
 paddlepaddle
 paddleocr
 realesrgan
-realesrgan
+diffusers
+accelerate
 
 # Other
 reportlab

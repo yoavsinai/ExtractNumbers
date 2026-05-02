@@ -37,8 +37,13 @@ def main():
     all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(all_samples)
-    eval_samples = all_samples[:args.max_samples]
+    
+    # Exclude categories without individual digit annotations
+    excluded_categories = ['race_numbers', 'ocr_trains']
+    filtered_samples = [s for s in all_samples if s['category'] not in excluded_categories]
+    
+    random.shuffle(filtered_samples)
+    eval_samples = filtered_samples[:args.max_samples]
     
     results = []
     all_ious = []

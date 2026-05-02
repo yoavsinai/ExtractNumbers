@@ -136,7 +136,14 @@ def main():
                 'category': s['category'], 's1_iou': 0, 'digit_acc': 0 if has_digit_boxes else None,
                 'has_digit_boxes': has_digit_boxes,
                 'has_label': has_label,
-                'digit_pairs': digit_pairs
+                'digit_pairs': digit_pairs,
+                'vis_img': img,
+                'vis_crop': img,
+                'vis_sharp': img,
+                'vis_gx': (0, 0, img.shape[1], img.shape[0]),
+                'vis_iboxes': [],
+                'vis_pred_crops': [],
+                'vis_preds': []
             }
             results.append(res_entry)
             continue
@@ -155,7 +162,14 @@ def main():
                 'category': s['category'], 's1_iou': s1_iou, 'digit_acc': 0 if has_digit_boxes else None,
                 'has_digit_boxes': has_digit_boxes,
                 'has_label': has_label,
-                'digit_pairs': digit_pairs
+                'digit_pairs': digit_pairs,
+                'vis_img': img,
+                'vis_crop': crop,
+                'vis_sharp': crop,
+                'vis_gx': (gx1, gy1, gx2, gy2),
+                'vis_iboxes': [],
+                'vis_pred_crops': [],
+                'vis_preds': []
             }
             results.append(res_entry)
             continue
