@@ -155,7 +155,7 @@ def make_individualbb_dataset(
         
     return data_yaml_path
 
-def train_individualbb(data_yaml, output_dir, epochs=20, batch=16, img_size=256, device=""):
+def train_individualbb(data_yaml, output_dir, epochs=20, batch=16, img_size=256, device="", weights="yolov8n.pt"):
     def on_fit_epoch_end(trainer):
         epoch = trainer.epoch + 1
         epochs = trainer.epochs
@@ -168,7 +168,7 @@ def train_individualbb(data_yaml, output_dir, epochs=20, batch=16, img_size=256,
         map50 = metrics.get('metrics/mAP50(B)', 0)
         print(f"Epoch {epoch}/{epochs}: loss={loss:.4f}, mAP50={map50:.4f}")
 
-    model = YOLO("yolov8n.pt")
+    model = YOLO(weights)
     model.add_callback("on_fit_epoch_end", on_fit_epoch_end)
 
     results = model.train(
@@ -195,6 +195,7 @@ def main():
     parser.add_argument("--force-train", action="store_true", help="Force training even if weights exist.")
     parser.add_argument("--prepare-only", action="store_true", help="Only generate sharpened dataset, no training.")
     parser.add_argument("--train-only", action="store_true", help="Only run training, skip dataset generation.")
+    parser.add_argument("--weights", type=str, default="yolov8n.pt", help="Pretrained weights to use for YOLO model.")
     args = parser.parse_args()
     
     dataset_root = os.path.abspath(args.dataset_root)
@@ -219,7 +220,7 @@ def main():
         
         data_yaml = os.path.join(individual_out_root, "data.yaml")
         if os.path.exists(data_yaml):
-            train_individualbb(data_yaml, args.output_dir, epochs=args.epochs)
+            train_individualbb(data_yaml, args.output_dir, epochs=args.epochs, weights=args.weights)
             
             ensure_dir(os.path.join(args.output_dir, "individualbb_run", "weights"))
             best_pt = os.path.join(args.output_dir, "individualbb_runs", "run1", "weights", "best.pt")
@@ -231,7 +232,7 @@ def main():
     if (not os.path.exists(weights_path)) or args.force_train:
         make_individualbb_dataset(samples, categories, individual_out_root, 0.8, 42)
         data_yaml = os.path.join(individual_out_root, "data.yaml")
-        train_individualbb(data_yaml, args.output_dir, epochs=args.epochs)
+        train_individualbb(data_yaml, args.output_dir, epochs=args.epochs, weights=args.weights)
         
         ensure_dir(os.path.join(args.output_dir, "individualbb_run", "weights"))
         best_pt = os.path.join(args.output_dir, "individualbb_runs", "run1", "weights", "best.pt")

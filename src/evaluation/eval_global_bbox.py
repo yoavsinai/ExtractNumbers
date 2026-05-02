@@ -34,11 +34,11 @@ def main():
     print("\n--- Stage 1: Global Bounding Box Evaluation ---")
     model = YOLO(GLOBAL_MODEL_PATH)
     
-    samples = iter_new_samples(DATA_ROOT)
+    all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(samples)
-    eval_samples = samples[:args.max_samples]
+    random.shuffle(all_samples)
+    eval_samples = all_samples[:args.max_samples]
     
     results = []
     ious = []
@@ -48,7 +48,7 @@ def main():
         if img is None: continue
         
         global_boxes, _, _, _ = get_gt_from_anno(s['anno_path'])
-        if not has_digits: continue
+        if not global_boxes: continue
         
         res = model.predict(source=img, imgsz=256, verbose=False)
         pred_global = None
@@ -60,8 +60,8 @@ def main():
             pred_global = res[0].boxes.xyxy[best_idx].cpu().numpy()
             conf = res[0].boxes.conf[best_idx].item()
             
-            if gt_global_boxes:
-                iou = calculate_iou(gt_global_boxes[0], pred_global)
+            if global_boxes:
+                iou = calculate_iou(global_boxes[0], pred_global)
                 ious.append(iou)
         
         results.append({

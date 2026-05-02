@@ -15,6 +15,7 @@ sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from image_preprocessing.digit_preprocessor import enhance_digit
 from utils.data_utils import iter_new_samples, get_gt_from_anno
+from digit_recognizer.digit_recognizer import load_classifier, predict_on_image, create_labeled_images
 
 # Structured Output Directories
 TRAINED_MODELS_DIR = os.path.join(BASE_DIR, "outputs", "trained_models")
@@ -28,6 +29,7 @@ BOUNDING_BOX_SRC = os.path.join(BASE_DIR, "src", "bounding_box")
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 BEST_GLOBAL_PATH = os.path.join(TRAINED_MODELS_DIR, "globalbb.pt")
 BEST_INDIVIDUAL_PATH = os.path.join(TRAINED_MODELS_DIR, "individualbb.pt")
+BEST_DIGIT_PATH = os.path.join(TRAINED_MODELS_DIR, "digit_recognizer.pt")
 GLOBAL_PREDS_CSV = os.path.join(PREDS_DIR, "globalbb_preds.csv")
 INDIV_PREDS_CSV = os.path.join(PREDS_DIR, "individualbb_preds.csv")
 PROG_IMAGE_PATH = os.path.join(VIS_DIR, "pipeline_progression.png")
@@ -54,11 +56,19 @@ def main():
     parser.add_argument("--force-train", action="store_true", help="Force retraining of models.")
     parser.add_argument("--force-inference", action="store_true", help="Force re-running of all inference stages.")
     parser.add_argument("--viz-only", action="store_true", help="Just regenerate the progression visualization using 3 random samples.")
-    parser.add_argument("--epochs", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=25)
     args = parser.parse_args()
 
+    # Define OUTPUT_DIR for YOLO training outputs
+    OUTPUT_DIR = os.path.join(BASE_DIR, "outputs", "yolo_runs")
+    
     os.makedirs(SHARPENED_DIR, exist_ok=True)
     os.makedirs(ASSETS_DIR, exist_ok=True)
+    os.makedirs(TRAINED_MODELS_DIR, exist_ok=True)
+    os.makedirs(PREDS_DIR, exist_ok=True)
+    os.makedirs(REPORTS_DIR, exist_ok=True)
+    os.makedirs(VIS_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     if args.viz_only:
         print("=> --viz-only enabled. Skipping Stage 1-3 checks and jumping to fresh visualization.")
@@ -158,6 +168,32 @@ def main():
         new_indiv_weights = os.path.join(YOLO_OUT, "individualbb_run", "weights", "best.pt")
         if os.path.exists(new_indiv_weights):
             shutil.copy(new_indiv_weights, BEST_INDIVIDUAL_PATH)
+
+    # =====================================================
+    # STAGE 4: Train/Load Digit Recognizer (ResNet18)
+    # =====================================================
+    dataset_root = os.path.join(BASE_DIR, "data", "digits_data")
+    print("\n=> Loading or Training Stage 4: Digit Recognizer (ResNet18)...")
+    digit_model = load_classifier(
+        model_path=BEST_DIGIT_PATH,
+        data_dir=dataset_root,
+        epochs=args.epochs if args.force_train else 3,
+        batch_size=64
+    )
+    print(f"=> Digit Recognizer model ready: {BEST_DIGIT_PATH}")
+
+    # Run digit recognition inference on GlobalBB predictions
+    DIGIT_PREDS_CSV = os.path.join(PREDS_DIR, "digit_preds.csv")
+    print("\n=> Running Digit Recognition Inference on GlobalBB detections...")
+    df_global = pd.read_csv(GLOBAL_PREDS_CSV)
+    predict_on_image(digit_model, "", df_global, DIGIT_PREDS_CSV)
+    print(f"=> Digit predictions saved to: {DIGIT_PREDS_CSV}")
+
+    # Create labeled images with digit predictions
+    print("\n=> Creating labeled images with digit predictions...")
+    df_digit_preds = pd.read_csv(DIGIT_PREDS_CSV)
+    create_labeled_images(df_digit_preds, os.path.join(DATASETS_DIR, "digit_labeled"))
+    print(f"=> Labeled images saved to: {os.path.join(DATASETS_DIR, 'digit_labeled')}")
 
     # Load Stage 1 predictions
     df = pd.read_csv(GLOBAL_PREDS_CSV)

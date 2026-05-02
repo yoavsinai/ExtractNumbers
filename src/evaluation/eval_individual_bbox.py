@@ -34,11 +34,11 @@ def main():
     print("\n--- Stage 3: Individual Bounding Box Evaluation ---")
     model = YOLO(INDIV_MODEL_PATH)
     
-    samples = iter_new_samples(DATA_ROOT)
+    all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(samples)
-    eval_samples = samples[:args.max_samples]
+    random.shuffle(all_samples)
+    eval_samples = all_samples[:args.max_samples]
     
     results = []
     all_ious = []
