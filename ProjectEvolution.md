@@ -158,4 +158,6 @@ Detailed per-digit classification scores are available in the evaluation report,
 
 The generated dashboard and detailed error analysis are captured in the evaluation reports under `outputs/reports`.
 
-![Stage 3 Step-by-Step Visualization](assets/example3.png)
+
+example for image sharpening (not cherry picked. if you want you can alter the visualize_enhancement.py to run in a loop and cherry pick the best result)
+![Stage 3 Step-by-Step Visualization](assets/visualization_unsharp_mask.png)
