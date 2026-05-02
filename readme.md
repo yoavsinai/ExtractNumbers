@@ -133,6 +133,7 @@ To ensure clarity across all reports, the following metrics are used:
 
 ---
 
+
 ### How to Run Evaluations
 The suite is divided into scripts for isolated performance analysis. You can now specify custom data sources for evaluation:
 
@@ -169,3 +170,33 @@ When a dataset is identified as weakly labeled (`has_digit_boxes=False` in `anno
 ### Error Analysis
 Detailed breakdown of how the model succeeds or fails at each individual step:
 ![Detailed Error Analysis](assets/detailed_error_analysis.png)
+
+
+
+---
+
+## 🎬 Video Asset Generation
+
+Runs the full 4-stage pipeline on **9 representative images** — 3 randomly selected from each data type (SVHN, Race Numbers, Handwritten) — and saves the per-stage visual output for use in a demo video.
+
+```bash
+python src/generate_video_assets.py \
+    --model-dir outputs/trained_models \
+    --data-root data/digits_data \
+    --out-dir   video_assets
+```
+
+This produces the folder `video_assets/` with one sub-folder per pipeline stage:
+
+| Folder | Contents |
+| :--- | :--- |
+| `01_samples/` | 9 raw input images (3 per data type) |
+| `02_global_bb/` | Each image with the GlobalBB rectangle drawn |
+| `03_sharpened/` | Real-ESRGAN enhanced crop |
+| `04_individual_bb/` | Sharpened crop with per-digit boxes |
+| `05_classification/` | Digit labels overlaid + predicted number banner |
+
+> **Note:** Statistics and accuracy metrics are not computed by this script.
+> Use the evaluation suite (`src/evaluation/`) for benchmarking.
+
+---
