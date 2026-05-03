@@ -93,43 +93,47 @@ To ensure clarity across all reports, the following metrics are used:
 
 | Category | Mean IoU | Detection Rate | mAP@0.5 |
 | :--- | :--- | :--- | :--- |
-| **Overall** | 0.7943 | 94.47% | 84.19% |
-| **Natural** | - | - | - |
-| **Handwritten**| - | - | - |
+| **Overall** | 0.7956 | 99.20% | 94.95% |
+| **Handwritten** | 0.7205 | 94.37% | 84.51% |
+| **SVHN** | 0.7992 | 99.43% | 95.43% |
 
-### 📊 Stage 2: Image Sharpening Comparison
-*Compares AI-powered enhancement against traditional methods.*
+### 📊 Stage 2: Image Sharpening Enhancement
+*AI-powered enhancement performance metrics.*
 
-| Method | Classification Accuracy |
+| Metric | Result |
 | :--- | :--- |
-| **Real-ESRGAN** | **98.2%** 🏆 |
-| **Traditional** | 91.0% |
-| **No-Sharpen** | 89.6% |
+| **Total Processed** | 2000 samples |
+| **Average Duration** | 0.0006s |
+| **Throughput** | 5,135,519 pixels/sec |
+| **Avg Upscale Factor** | 2.00x |
 
 ### 📊 Stage 3: Individual Digit Localization
 *Evaluates digit segmentation within sharpened crops.*
 
-| Category | Mean IoU | Precision | Recall |
-| :--- | :--- | :--- | :--- |
-| **Overall** | 0.7390 | 98.45% | 98.22% |
-| **Natural** | - | - | - |
-| **Handwritten**| - | - | - |
+| Category | Mean IoU | Recall |
+| :--- | :--- | :--- |
+| **Overall** | 0.8267 | 101.24% |
+| **Handwritten** | 0.8748 | 100.77% |
+| **SVHN** | 0.8389 | 101.27% |
 
 ### 📊 Stage 4: Digit Classification
 *Isolated classification performance (ResNet18).*
 
-| Digit | Precision | Recall | F1-Score | Support |
-| :--- | :--- | :--- | :--- | :--- |
-| **0-9 Avg** | **0.97** | **0.97** | **0.97** | **76,803** |
+| Category | Accuracy | Support |
+| :--- | :--- | :--- |
+| **Overall** | 93.75% | 4514 digits |
+| **Handwritten** | 98.85% | - |
+| **SVHN** | 93.44% | - |
 
 ### 🏆 Full End-to-End Pipeline Performance
 *Master benchmark: Raw pixels → Final predicted string.*
 
-| Metric | Overall | Natural (SVHN) | Handwritten |
+| Metric | Overall | Handwritten | SVHN |
 | :--- | :--- | :--- | :--- |
-| **Full Sequence Accuracy** | **79.20%** | **80.33%** | 47.06% |
-| **Mean Digit Accuracy (Pos)**| **88.86%** | **89.25%** | **76.44%** |
-| **Succession Rate** | **-** | **-** | **-** |
+| **Full Sequence Accuracy** | **70.25%** | **58.50%** | **82.00%** |
+| **Mean Digit Accuracy (Pos)**| **81.89%** | **74.33%** | **89.46%** |
+| **Stage 1 Mean IoU** | 0.7635 | 0.7226 | 0.8044 |
+| **Stage 3 Mean IoU** | 0.7629 | 0.7810 | 0.7461 |
 
 ---
 

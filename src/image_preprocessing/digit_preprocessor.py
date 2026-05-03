@@ -318,21 +318,41 @@ def preprocess_digit(
     return binary
 
 
+def enhance_digit_opencv(
+    image: np.ndarray,
+    upscale_factor: float = 2.0,
+    unsharp_strength: float = 1.5,
+    kernel_size: Tuple[int, int] = (5, 5)
+) -> np.ndarray:
+    """
+    Enhance digit image using traditional OpenCV methods without binarization.
+    Acts as a lightweight alternative to Real-ESRGAN.
+    """
+    if image is None or image.size == 0:
+        raise ValueError("Input image is empty or invalid")
+        
+    upscaled = upscale_image(image, scale_factor=upscale_factor, use_realesrgan=False)
+    sharpened = apply_unsharp_mask(upscaled, kernel_size=kernel_size, strength=unsharp_strength)
+    return sharpened
+
+
 def enhance_digit(
     image: np.ndarray,
     upscale_factor: float = 2.0,
-    bilateral_diameter: int = 9
+    bilateral_diameter: int = 9,
+    method: str = "esrgan"
 ) -> np.ndarray:
     """
     Enhance digit image for detection/training without binarization.
     
-    Applies upscaling with Real-ESRGAN and bilateral filtering for noise reduction.
+    Applies enhancement based on the requested method (esrgan, opencv, none).
     Returns enhanced image suitable for model input (not binary).
     
     Args:
         image: Input digit image (numpy array, BGR or grayscale)
         upscale_factor: Factor to upscale image (default: 2.0)
         bilateral_diameter: Bilateral filter diameter (default: 9)
+        method: Enhancement method ('esrgan', 'opencv', 'none')
     
     Returns:
         Enhanced image (RGB or grayscale, depending on input)
@@ -345,13 +365,19 @@ def enhance_digit(
     if image is None or image.size == 0:
         raise ValueError("Input image is empty or invalid")
     
-    # Upscale with Real-ESRGAN if available
-    upscaled = upscale_image(image, scale_factor=upscale_factor, use_realesrgan=True)
-    
-    # Apply bilateral filter (denoise)
-    enhanced = apply_bilateral_filter(upscaled, diameter=bilateral_diameter)
-    
-    return enhanced
+    if method == "none":
+        return image.copy()
+    elif method == "opencv":
+        return enhance_digit_opencv(image, upscale_factor=upscale_factor)
+    elif method == "esrgan":
+        # Upscale with Real-ESRGAN if available
+        upscaled = upscale_image(image, scale_factor=upscale_factor, use_realesrgan=True)
+        
+        # Apply bilateral filter (denoise)
+        enhanced = apply_bilateral_filter(upscaled, diameter=bilateral_diameter)
+        return enhanced
+    else:
+        raise ValueError(f"Unknown enhancement method: {method}")
 
 
 def sharpen_digit(

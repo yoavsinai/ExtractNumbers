@@ -49,8 +49,13 @@ def main():
     all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(all_samples)
-    eval_samples = all_samples[:args.max_samples]
+    
+    # Exclude categories without individual digit annotations
+    excluded_categories = ['race_numbers', 'ocr_trains']
+    filtered_samples = [s for s in all_samples if s['category'] not in excluded_categories]
+    
+    random.shuffle(filtered_samples)
+    eval_samples = filtered_samples[:args.max_samples]
     
     results = []
     y_true = []
@@ -108,7 +113,9 @@ def main():
     print(f"Overall Accuracy: {total_acc:.2%}")
     
     print("\nDetailed Classification Report:")
-    report = classification_report(y_true, y_pred, target_names=[str(i) for i in range(10)])
+    unique_labels = sorted(set(y_true))
+    target_names = [str(i) for i in unique_labels]
+    report = classification_report(y_true, y_pred, labels=unique_labels, target_names=target_names)
     print(report)
     
     print("\n📈 ACCURACY BY CATEGORY:")
