@@ -90,6 +90,7 @@ This section documents the iterative improvements made to the **ExtractNumbers**
   $$P(D_{i+1} \text{ correct} | D_i \text{ correct})$$
 
 
+
 ### 📈 Results
 #### 1. Individual Digit Localization
 
@@ -161,3 +162,113 @@ The generated dashboard and detailed error analysis are captured in the evaluati
 
 example for image sharpening (not cherry picked. if you want you can alter the visualize_enhancement.py to run in a loop and cherry pick the best result)
 ![Stage 3 Step-by-Step Visualization](assets/visualization_unsharp_mask.png)
+
+
+---
+
+## 🟢 Stage 4: Data Library Corrections & Video Infrastructure
+
+**Focus:** Improving evaluation reliability, benchmarking all enhancement methods, and laying the groundwork for video-based inference.
+
+*   **Sharpening Benchmark:** Evaluated all 10 enhancement methods to determine the best preprocessing step for the pipeline.
+*   **Recall Bug Fix:** Corrected the over-100% recall issue — recall was previously calculated as `predicted boxes / GT boxes` instead of the standard `TP / (TP + FN)`.
+*   **Evaluation:** *(in progress)*
+*   **Captured Data:** New evaluation images captured externally will be added to the dataset. *(in progress)*
+*   **Video Pipeline — Data:** Collecting video data for inference. *(in progress)*
+*   **Video Pipeline — Frame Exploration:** Investigating optimal frame sampling strategies. *(in progress)*
+*   **Video Pipeline — Sharpening Frames:** Exploring the effect of enhancement across multiple frames. *(in progress)*
+
+---
+
+### 📈 Results
+הכל פה צריך לעדכן- מתי סליחה מראש🦥
+
+
+#### 1. Global Bounding Box Detection
+
+| Metric | Overall | Handwritten | SVHN | Synthetic |
+| :--- | :--- | :--- | :--- | :--- |
+| mAP50 | — | — | — | — |
+| Precision | — | — | — | — |
+| Recall | — | — | — | — |
+
+---
+
+#### 2. Image Sharpening Benchmark — All 10 Methods
+
+To find the best enhancement for our pipeline, we evaluated all 10 available sharpening/super-resolution methods using `src/evaluation/run_all_enhancements.py`.
+
+**The 10 methods evaluated:**
+
+| # | Method | Description |
+| :--- | :--- | :--- |
+| 1 | `none` | Baseline — no enhancement |
+| 2 | `unsharp_mask` | Classic Gaussian-blur-based unsharp masking |
+| 3 | `clahe` | Contrast Limited Adaptive Histogram Equalization |
+| 4 | `esrgan` | Real-ESRGAN deep-learning super-resolution |
+| 5 | `edsr` | EDSR — Enhanced Deep Residual Networks |
+| 6 | `lapsrn` | LapSRN — Laplacian Pyramid SR Network |
+| 7 | `realcugan` | Real-CUGAN — lightweight GAN super-resolution |
+| 8 | `bsrgan` | BSRGAN — Blind Super-Resolution GAN |
+| 9 | `swiniR` | SwinIR — Swin Transformer Image Restoration |
+| 10 | `diffusion` | Diffusion Upscaler — Stable Diffusion 4× |
+
+**Statistics Per Method:**
+
+> Mati sorry in advance 🦥
+
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
+| :--- | :--- | :--- | :--- | :--- |
+| `none` | — | — | — | — |
+| `unsharp_mask` | — | — | — | — |
+| `clahe` | — | — | — | — |
+| `esrgan` | — | — | — | — |
+| `edsr` | — | — | — | — |
+| `lapsrn` | — | — | — | — |
+| `realcugan` | — | — | — | — |
+| `bsrgan` | — | — | — | — |
+| `swiniR` | — | — | — | — |
+| `diffusion` | — | — | — | — |
+
+> **Selected Method:** Based on the benchmark results above, we chose the method: **`___`**
+
+**Selected Method Performance — By Data Category:**
+
+| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
+| :--- | :--- | :--- | :--- | :--- |
+| Handwritten | — | — | — | — |
+| SVHN | — | — | — | — |
+| Synthetic | — | — | — | — |
+
+---
+
+#### 3. Digit Classification
+
+| Metric | Overall | Handwritten | SVHN | Synthetic |
+| :--- | :--- | :--- | :--- | :--- |
+| Accuracy | — | — | — | — |
+
+---
+
+#### 4. Full End-to-End Pipeline Performance
+
+| Metric | Overall | Handwritten | SVHN | Synthetic |
+| :--- | :--- | :--- | :--- | :--- |
+| Full Sequence Accuracy | — | — | — | — |
+| Mean Digit Accuracy (Pos) | — | — | — | — |
+| Stage 1 (Global) Mean IoU | — | — | — | — |
+| Stage 3 (Individual) Mean IoU | — | — | — | — |
+| Succession Rate | — | — | — | — |
+
+> **Conclusion:** *(to be written after benchmark results are in)*
+
+**Full Pipeline Visualization:**
+
+The generated dashboard and detailed error analysis are captured in the evaluation reports under `outputs/reports`.
+
+![Stage 4 Step-by-Step Visualization](assets/example4.png)
+
+
+
+---
+
