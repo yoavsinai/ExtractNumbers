@@ -90,7 +90,7 @@ def main():
     excluded_categories = ['race_number', 'race_numbers', 'ocr_train', 'ocr_trains']
     for s in all_samples:
         if s['category'] not in excluded_categories:
-            samples_by_cat[s['category']].append(s)
+        samples_by_cat[s['category']].append(s)
         
     import random
     random.seed(42)
@@ -260,11 +260,13 @@ def main():
     log_print(f"Mean Digit Accuracy (Pos):    {df[df['has_digit_boxes'] == True]['digit_acc'].mean():.2%}")
     log_print(f"Stage 1 (Global) Mean IoU:    {df['s1_iou'].mean():.4f} (All Samples)")
     log_print(f"Stage 3 (Indiv)  Mean IoU:    {df[df['has_digit_boxes'] == True]['s2_iou_avg'].mean():.4f}")
+    log_print(f"Succession Rate:              {df[df['has_digit_boxes'] == True]['succession_rate'].mean():.2%}")
     
     log_print("\n📈 PERFORMANCE BY CATEGORY:")
     cat_stats = pd.DataFrame({
         'Seq Acc': df[df['has_label'] == True].groupby('category')['correct'].mean(),
         'Digit Acc': df[df['has_digit_boxes'] == True].groupby('category')['digit_acc'].mean(),
+        'Succ Rate': df[df['has_digit_boxes'] == True].groupby('category')['succession_rate'].mean(),
         'S1 IoU': df.groupby('category')['s1_iou'].mean(),
         'S2 IoU': df[df['has_digit_boxes'] == True].groupby('category')['s2_iou_avg'].mean(),
         'Count': df.groupby('category').size(),
@@ -273,7 +275,7 @@ def main():
 
     cat_stats['Count'] = cat_stats['Count'].fillna(0).astype(int)
     cat_stats['Labeled'] = cat_stats['Labeled'].fillna(0).astype(int)
-    for col in ['Seq Acc', 'Digit Acc', 'S1 IoU', 'S2 IoU']:
+    for col in ['Seq Acc', 'Digit Acc', 'Succ Rate', 'S1 IoU', 'S2 IoU']:
         cat_stats[col] = cat_stats[col].apply(lambda x: f"{x:.4f}" if pd.notna(x) else "N/A")
 
     log_print(cat_stats.to_string())

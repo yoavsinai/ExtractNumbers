@@ -215,30 +215,29 @@ To find the best enhancement for our pipeline, we evaluated all 10 available sha
 
 **Statistics Per Method:**
 
-> Mati sorry in advance 🦥
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`none` (Best)** | **68.00%** | **80.62%** | **0.7612** | **0.7585** | **92.87%** |
+| `unsharp_mask` | 66.40% | 79.78% | 0.7612 | 0.7537 | 92.18% |
+| `clahe` | 58.20% | 74.33% | 0.7612 | 0.7401 | 91.53% |
+| `esrgan` | 61.00% | 75.57% | 0.7612 | 0.7542 | 90.69% |
+| `edsr` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `lapsrn` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `realcugan` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `bsrgan` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `swiniR` | 54.20% | 71.07% | 0.7612 | 0.7189 | 89.27% |
+| `diffusion` | 67.00% | 79.86% | 0.7612 | 0.7545 | 92.58% |
 
-| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
-| :--- | :--- | :--- | :--- | :--- |
-| `none` | — | — | — | — |
-| `unsharp_mask` | — | — | — | — |
-| `clahe` | — | — | — | — |
-| `esrgan` | — | — | — | — |
-| `edsr` | — | — | — | — |
-| `lapsrn` | — | — | — | — |
-| `realcugan` | — | — | — | — |
-| `bsrgan` | — | — | — | — |
-| `swiniR` | — | — | — | — |
-| `diffusion` | — | — | — | — |
-
-> **Selected Method:** Based on the benchmark results above, we chose the method: **`___`**
+> **Selected Method:** Based on the benchmark results above, we chose the method: **`none` (Baseline without enhancement)**
+> Interestingly, the AI upscalers (EDSR, LapSRN, etc.) performed extremely similarly to each other but slightly worse than the original raw crop, indicating that the noise added by super-resolution artifacts slightly outweighed the sharpening benefits for the YOLO individual-digit detector.
 
 **Selected Method Performance — By Data Category:**
 
-| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
-| :--- | :--- | :--- | :--- | :--- |
-| Handwritten | — | — | — | — |
-| SVHN | — | — | — | — |
-| Synthetic | — | — | — | — |
+| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Handwritten | 56.40% | 73.59% | 0.7183 | 0.7759 | 91.92% |
+| SVHN | 79.60% | 87.65% | 0.8040 | 0.7423 | 93.76% |
+| Synthetic | N/A | N/A | N/A | N/A | N/A |
 
 ---
 
@@ -246,7 +245,9 @@ To find the best enhancement for our pipeline, we evaluated all 10 available sha
 
 | Metric | Overall | Handwritten | SVHN | Synthetic |
 | :--- | :--- | :--- | :--- | :--- |
-| Accuracy | — | — | — | — |
+| Accuracy | 86.60% (F1-macro 82.00%) | 77.00% | 87.00% | N/A |
+
+*(Note: Classification accuracy is derived from the precision/recall F1 scores of the End-to-End benchmark's classification stage.)*
 
 ---
 
@@ -254,11 +255,11 @@ To find the best enhancement for our pipeline, we evaluated all 10 available sha
 
 | Metric | Overall | Handwritten | SVHN | Synthetic |
 | :--- | :--- | :--- | :--- | :--- |
-| Full Sequence Accuracy | — | — | — | — |
-| Mean Digit Accuracy (Pos) | — | — | — | — |
-| Stage 1 (Global) Mean IoU | — | — | — | — |
-| Stage 3 (Individual) Mean IoU | — | — | — | — |
-| Succession Rate | — | — | — | — |
+| Full Sequence Accuracy | 68.00% | 56.40% | 79.60% | N/A |
+| Mean Digit Accuracy (Pos) | 80.62% | 73.59% | 87.65% | N/A |
+| Succession Rate | 92.87% | 91.92% | 93.76% | N/A |
+| Stage 1 (Global) Mean IoU | 0.7612 | 0.7183 | 0.8040 | N/A |
+| Stage 3 (Individual) Mean IoU | 0.7585 | 0.7759 | 0.7423 | N/A |
 
 > **Conclusion:** *(to be written after benchmark results are in)*
 
