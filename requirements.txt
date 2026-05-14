@@ -25,6 +25,8 @@ kagglehub
 paddlepaddle
 paddleocr
 realesrgan
+basicsr
+timm
 diffusers
 accelerate
 
