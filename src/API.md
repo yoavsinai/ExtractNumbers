@@ -83,7 +83,7 @@ Standardized JSON format for localization and recognition:
 
 ## `evaluation/` - Metrics and Analysis
 
-### `evaluate_all.py`
+### `eval_all.py`
 **Purpose:** Master evaluation orchestrator. Runs all stages + full pipeline benchmark.
 
 ### `eval_global_bbox.py`, `eval_sharpening.py`, `eval_individual_bbox.py`, `eval_digit_recog.py`
