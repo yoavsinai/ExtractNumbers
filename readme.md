@@ -44,6 +44,9 @@ The extraction process is divided into four main stages:
 
 1.  **Global Bounding-Box Detection (GlobalBB):** Localizes the entire number sequence within the noisy source image.
 2.  **Super-Resolution & Sharpening:** Implements **Real-ESRGAN** to enhance visual quality, recovery of fine details, and edge sharpening.
+
+מתי סליחה מראש🦥
+מתי סליחה מראש- אולי צריך לעדכן את שם החידוד 
 3.  **Individual Digit Localization (IndividualBB):** Detects and segments each digit individually within the sharpened crops.
 4.  **Neural Character Recognition (Classification):** ResNet18-based classification of localized digits into final values (0-9).
 
@@ -99,7 +102,7 @@ To ensure clarity across all reports, the following metrics are used:
 
 ### 📊 Stage 2: Image Sharpening Enhancement
 *AI-powered enhancement performance metrics.*
-
+מתי סליחה מראש🦥- לעדכן טאחרי הריצה החדשה
 | Metric | Result |
 | :--- | :--- |
 | **Total Processed** | 2000 samples |
@@ -107,8 +110,20 @@ To ensure clarity across all reports, the following metrics are used:
 | **Throughput** | 5,135,519 pixels/sec |
 | **Avg Upscale Factor** | 2.00x |
 
+
+| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
+| :--- | :--- | :--- | :--- | :--- |
+| Handwritten | — | — | — | — |
+| SVHN | — | — | — | — |
+| Synthetic | — | — | — | — |
+
+
 ### 📊 Stage 3: Individual Digit Localization
 *Evaluates digit segmentation within sharpened crops.*
+
+
+מתי סליחה מראש🦥- לעדכן טאחרי הריצה החדשה
+
 
 | Category | Mean IoU | Recall |
 | :--- | :--- | :--- |
@@ -119,6 +134,11 @@ To ensure clarity across all reports, the following metrics are used:
 ### 📊 Stage 4: Digit Classification
 *Isolated classification performance (ResNet18).*
 
+
+מתי סליחה מראש🦥- לעדכן טאחרי הריצה החדשה
+
+
+
 | Category | Accuracy | Support |
 | :--- | :--- | :--- |
 | **Overall** | 93.75% | 4514 digits |
@@ -127,6 +147,12 @@ To ensure clarity across all reports, the following metrics are used:
 
 ### 🏆 Full End-to-End Pipeline Performance
 *Master benchmark: Raw pixels → Final predicted string.*
+
+
+מתי סליחה מראש🦥- לעדכן טאחרי הריצה החדשה
+
+
+
 
 | Metric | Overall | Handwritten | SVHN |
 | :--- | :--- | :--- | :--- |
@@ -169,6 +195,12 @@ When a dataset is identified as weakly labeled (`has_digit_boxes=False` in `anno
 3.  **End-to-End Accuracy**: Calculated by comparing the final OCR output with the ground truth sequence label.
 
 ### Pipeline Progression
+
+מתי סליחה מראש🦥- לעדכן טאחרי הריצה החדשה
+
+
+
+
 ![Full Pipeline Dashboard](assets/full_pipeline_progression.png)
 
 ### Error Analysis

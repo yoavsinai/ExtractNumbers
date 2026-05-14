@@ -46,7 +46,7 @@ def main():
     parser.add_argument("--analyze-errors", action="store_true", help="Generate detailed error analysis visualization")
     parser.add_argument("--data-root", type=str, default=os.path.join(BASE_DIR, "data", "digits_data"), help="Path to the dataset root")
     parser.add_argument("--output-dir", type=str, default=os.path.join(BASE_DIR, "outputs"), help="Base directory for outputs")
-    parser.add_argument("--enhancement", type=str, default="unsharp_mask", choices=["esrgan", "unsharp_mask", "clahe", "none", "opencv"], help="Choose the sharpening/enhancement model ('opencv' is an alias for 'unsharp_mask')")
+    parser.add_argument("--enhancement", type=str, default="unsharp_mask", choices=["none", "unsharp_mask", "clahe", "esrgan", "edsr", "lapsrn", "realcugan", "bsrgan", "swiniR", "diffusion", "opencv"], help="Choose the sharpening/enhancement model ('opencv' is an alias for 'unsharp_mask')")
     args = parser.parse_args()
 
     # Structured Paths
