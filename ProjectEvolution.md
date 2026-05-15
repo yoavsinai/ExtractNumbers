@@ -181,16 +181,15 @@ example for image sharpening (not cherry picked. if you want you can alter the v
 ---
 
 ### 📈 Results
-הכל פה צריך לעדכן- מתי סליחה מראש🦥
 
 
 #### 1. Global Bounding Box Detection
 
 | Metric | Overall | Handwritten | SVHN | Synthetic |
 | :--- | :--- | :--- | :--- | :--- |
-| mAP50 | — | — | — | — |
-| Precision | — | — | — | — |
-| Recall | — | — | — | — |
+| mAP50 | 90.20% | 84.60% | 95.80% | N/A |
+| Precision | 93.76% | 90.97% | 96.38% | N/A |
+| Recall | 96.20% | 93.00% | 99.40% | N/A |
 
 ---
 
@@ -269,7 +268,72 @@ The generated dashboard and detailed error analysis are captured in the evaluati
 
 ![Stage 4 Step-by-Step Visualization](assets/example4.png)
 
+---
 
+#### 5. Image Sharpening — Pre-Enhancement Benchmark (Enhancement Before GlobalBB)
+
+> **Experiment:** Instead of enhancing the **crop** (after GlobalBB), here we apply enhancement to the **full image** before any detection stage. This tests whether the GlobalBB detector benefits from a cleaner input.
+
+**Statistics Per Method (Full Image Enhanced → GlobalBB → Crop → IndividualBB → Classify):**
+
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate | ms/img |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`none` (Best Seq Acc)** | **68.00%** | **80.62%** | **0.7612** | 0.7585 | 92.87% | 52.7 |
+| `unsharp_mask` | 67.00% | 79.80% | 0.7583 | 0.7583 | **93.79%** | 55.7 |
+| `clahe` | 60.30% | 75.08% | 0.7277 | 0.7499 | 90.65% | 65.0 |
+| `esrgan` | 61.20% | 76.38% | 0.7455 | 0.7481 | 91.25% | 7183.6 |
+| `edsr` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 54.3 |
+| `lapsrn` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 53.6 |
+| `realcugan` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 53.9 |
+| `bsrgan` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 53.5 |
+| `swiniR` | 50.50% | 65.87% | 0.6656 | 0.7192 | 90.05% | 55.0 |
+| `diffusion` | 67.00% | 80.08% | 0.7585 | 0.7566 | 93.21% | 56.6 |
+
+**Performance by Category — Best Method (`none` baseline):**
+
+| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Handwritten | 56.40% | 73.59% | 0.7183 | 0.7759 | 91.92% |
+| SVHN | 79.60% | 87.65% | 0.8040 | 0.7423 | 93.76% |
+| Synthetic | N/A | N/A | N/A | N/A | N/A |
+
+> **Key Findings:**
+> - Applying enhancement **before** GlobalBB does **not improve** over the mid-pipeline baseline (crop enhancement). The best result is still `none` at **68.00%** sequence accuracy.
+> - EDSR, LapSRN, RealCUGAN, and BSRGAN all tie at 67.50% — slightly above `unsharp_mask` and `diffusion` (67.00%) but still below baseline.
+> - `swiniR` is the worst performer in both experiments (~50%), suggesting it distorts image features that harm the YOLO detectors.
+> - `esrgan` is prohibitively slow (7,183 ms/img) for production use in pre-enhancement mode.
+> - **Conclusion:** Enhancement at any stage of the pipeline does not benefit our OCR system. The YOLO models were trained on raw images and perform best on unmodified input.
 
 ---
 
+#### 6. Image Sharpening — Post-Enhancement Benchmark (Enhancement on Individual Digits)
+
+> **Experiment:** In this third approach, we apply enhancement **only on the individual digit crops** after they are isolated by the IndividualBB (Stage 3), just before passing them to the final classification model (Stage 4). This tests whether the ResNet classifier benefits from enhanced numbers.
+
+**Statistics Per Method (Full Image → GlobalBB → Crop → IndividualBB → Enhance Digit → Classify):**
+
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`none` (Best Seq Acc)** | **67.00%** | **80.26%** | **0.7612** | **0.7585** | 92.38% |
+| `unsharp_mask` | 66.80% | 80.23% | 0.7612 | 0.7585 | **92.77%** |
+| `clahe` | 56.50% | 73.52% | 0.7612 | 0.7585 | 89.77% |
+| `esrgan` | 57.00% | 73.38% | 0.7612 | 0.7585 | 89.09% |
+| `edsr` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `lapsrn` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `realcugan` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `bsrgan` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `swiniR` | 62.90% | 77.74% | 0.7612 | 0.7585 | 91.03% |
+| `diffusion` | 66.70% | 80.08% | 0.7612 | 0.7585 | 92.49% |
+
+> **Final Insights on Enhancement Positioning:**
+> - Even when applied directly before the classification stage, **enhancement does not improve performance**. The baseline (`none`) still wins with 67.00% sequence accuracy.
+> - Notice that the `none` baseline here dropped from 68.00% (in the mid-pipeline baseline) to 67.00%. This happened because isolating the exact digit crop stripped away the 5px padding (context) that the classifier normally receives, harming its accuracy.
+> - **Final Verdict:** We have tested AI upscaling and sharpening at all three possible stages (Before GlobalBB, After GlobalBB, After IndividualBB). In all three scenarios, performance degraded compared to running the raw, unenhanced images. **We should disable all enhancements for production.**
+
+---
+
+## 🟢 Stage 5: Project Structure Refactoring
+
+**Focus:** Improving maintainability and file organization.
+
+*   **Model Weights Migration:** Consolidated external and downloaded weights (e.g., Real-ESRGAN, Real-CUGAN) from the top-level `weights/` directory into `outputs/trained_models/`. This unifies all AI models, both trained locally and downloaded, into a single central directory.

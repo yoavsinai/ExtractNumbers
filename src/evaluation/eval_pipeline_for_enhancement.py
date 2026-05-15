@@ -90,7 +90,7 @@ def main():
     excluded_categories = ['race_number', 'race_numbers', 'ocr_train', 'ocr_trains']
     for s in all_samples:
         if s['category'] not in excluded_categories:
-        samples_by_cat[s['category']].append(s)
+            samples_by_cat[s['category']].append(s)
         
     import random
     random.seed(42)
