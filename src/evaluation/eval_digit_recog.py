@@ -52,10 +52,20 @@ def main():
     
     # Exclude categories without individual digit annotations
     excluded_categories = ['race_numbers', 'ocr_trains']
-    filtered_samples = [s for s in all_samples if s['category'] not in excluded_categories]
-    
-    random.shuffle(filtered_samples)
-    eval_samples = filtered_samples[:args.max_samples]
+    from collections import defaultdict
+    samples_by_cat = defaultdict(list)
+    for s in all_samples:
+        if s['category'] not in excluded_categories:
+            samples_by_cat[s['category']].append(s)
+            
+    eval_samples = []
+    if samples_by_cat:
+        total_samples = sum(len(s) for s in samples_by_cat.values())
+        for cat, samps in samples_by_cat.items():
+            random.shuffle(samps)
+            num_samples = max(1, int(round(args.max_samples * (len(samps) / total_samples))))
+            eval_samples.extend(samps[:num_samples])
+        random.shuffle(eval_samples)
     
     results = []
     y_true = []
@@ -76,35 +86,37 @@ def main():
         crop = img[gy1:gy2, gx1:gx2]
         if crop.size == 0: continue
             
-        # Default enhancement: Real-ESRGAN
-        sharp = enhance_digit(crop, upscale_factor=2.0)
-        
-        for digit in digit_info:
-            dx1, dy1, dx2, dy2 = digit['bbox']
-            # Map to sharpened crop coordinate
-            nx1, ny1 = (dx1 - gx1) * 2.0, (dy1 - gy1) * 2.0
-            nx2, ny2 = (dx2 - gx1) * 2.0, (dy2 - gy1) * 2.0
-            ibox = (nx1, ny1, nx2, ny2)
+        for enh_method in ["none", "esrgan"]:
+            sharp = enhance_digit(crop, upscale_factor=2.0, method=enh_method)
+            scale = 2.0 if enh_method in ["esrgan", "opencv"] else 1.0
             
-            try:
-                inputs = preprocess_crop(sharp, ibox).unsqueeze(0).to(device)
-                with torch.no_grad():
-                    out = classifier(inputs)
-                    pred_digit = out.argmax(dim=1).item()
-                    gt_digit = int(digit['label'])
-                    
-                    y_true.append(gt_digit)
-                    y_pred.append(pred_digit)
-                    
-                    results.append({
-                        'sample_id': s['sample_id'],
-                        'category': s['category'],
-                        'gt': gt_digit,
-                        'pred': pred_digit,
-                        'correct': pred_digit == gt_digit
-                    })
-            except:
-                continue
+            for digit in digit_info:
+                dx1, dy1, dx2, dy2 = digit['bbox']
+                # Map to sharpened crop coordinate
+                nx1, ny1 = (dx1 - gx1) * scale, (dy1 - gy1) * scale
+                nx2, ny2 = (dx2 - gx1) * scale, (dy2 - gy1) * scale
+                ibox = (nx1, ny1, nx2, ny2)
+                
+                try:
+                    inputs = preprocess_crop(sharp, ibox).unsqueeze(0).to(device)
+                    with torch.no_grad():
+                        out = classifier(inputs)
+                        pred_digit = out.argmax(dim=1).item()
+                        gt_digit = int(digit['label'])
+                        
+                        y_true.append(gt_digit)
+                        y_pred.append(pred_digit)
+                        
+                        results.append({
+                            'sample_id': s['sample_id'],
+                            'category': s['category'],
+                            'enhancement': enh_method,
+                            'gt': gt_digit,
+                            'pred': pred_digit,
+                            'correct': pred_digit == gt_digit
+                        })
+                except:
+                    continue
 
     df = pd.DataFrame(results)
     

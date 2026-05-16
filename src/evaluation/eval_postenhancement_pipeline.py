@@ -97,9 +97,10 @@ def main():
     eval_samples = []
     
     if samples_by_cat:
-        samples_per_cat = args.max_samples // len(samples_by_cat)
+        total_samples = sum(len(s) for s in samples_by_cat.values())
         for cat, samps in samples_by_cat.items():
             random.shuffle(samps)
+            samples_per_cat = max(1, int(round(args.max_samples * (len(samps) / total_samples))))
             eval_samples.extend(samps[:samples_per_cat])
             
         # Shuffle the final evaluation list to mix datasets during processing

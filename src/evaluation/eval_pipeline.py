@@ -18,6 +18,7 @@ from digit_recognizer.digit_recognizer import build_digit_model, get_device, pre
 from image_preprocessing.digit_preprocessor import enhance_digit
 from utils.data_utils import iter_new_samples, get_gt_from_anno
 from utils.metrics import calculate_iou
+from utils.bbox_utils import merge_global_boxes, nms_individual_boxes
 
 # Redundant get_full_gt_number removed as get_gt_from_anno now returns the full label.
 
@@ -48,7 +49,7 @@ def main():
     parser.add_argument("--analyze-errors", action="store_true", help="Generate detailed error analysis visualization")
     parser.add_argument("--data-root", type=str, default=os.path.join(BASE_DIR, "data", "digits_data"), help="Path to the dataset root")
     parser.add_argument("--output-dir", type=str, default=os.path.join(BASE_DIR, "outputs"), help="Base directory for outputs")
-    parser.add_argument("--enhancement", type=str, default="esrgan", choices=["esrgan", "none"], help="Choose the sharpening/enhancement model")
+    # parser.add_argument("--enhancement"... removed to test both)
     args = parser.parse_args()
 
     # Structured Paths
@@ -95,9 +96,10 @@ def main():
     eval_samples = []
     
     if samples_by_cat:
-        samples_per_cat = args.max_samples // len(samples_by_cat)
+        total_samples = sum(len(s) for s in samples_by_cat.values())
         for cat, samps in samples_by_cat.items():
             random.shuffle(samps)
+            samples_per_cat = max(1, int(round(args.max_samples * (len(samps) / total_samples))))
             eval_samples.extend(samps[:samples_per_cat])
             
         # Shuffle the final evaluation list to mix datasets during processing
@@ -122,8 +124,8 @@ def main():
         s1_iou = 0.0
         
         if res1 and len(res1[0].boxes) > 0:
-            best_idx = res1[0].boxes.conf.argmax().item()
-            pred_global = res1[0].boxes.xyxy[best_idx].cpu().numpy()
+            all_gboxes = res1[0].boxes.xyxy.cpu().numpy()
+            pred_global = merge_global_boxes(all_gboxes)
             
             if gt_global_boxes:
                 s1_iou = calculate_iou(gt_global_boxes[0], pred_global)
@@ -133,7 +135,7 @@ def main():
             res_entry = {
                 'sample_id': s['sample_id'], 'gt': gt_number, 'pred': '', 
                 'correct': False if has_label else None, 
-                'category': s['category'], 's1_iou': 0, 'digit_acc': 0 if has_digit_boxes else None,
+                'category': s['category'], 's1_iou': 0, 'digit_acc': 0 if has_digit_boxes else None, 'enhancement': enh_method,
                 'has_digit_boxes': has_digit_boxes,
                 'has_label': has_label,
                 'digit_pairs': digit_pairs,
@@ -159,7 +161,7 @@ def main():
             res_entry = {
                 'sample_id': s['sample_id'], 'gt': gt_number, 'pred': '', 
                 'correct': False if has_label else None, 
-                'category': s['category'], 's1_iou': s1_iou, 'digit_acc': 0 if has_digit_boxes else None,
+                'category': s['category'], 's1_iou': s1_iou, 'digit_acc': 0 if has_digit_boxes else None, 'enhancement': enh_method,
                 'has_digit_boxes': has_digit_boxes,
                 'has_label': has_label,
                 'digit_pairs': digit_pairs,
@@ -174,83 +176,87 @@ def main():
             results.append(res_entry)
             continue
             
-        # -- Step 2: Sharpening --
-        sharp = enhance_digit(crop, upscale_factor=2.0, method=args.enhancement)
-        scale = 2.0 if args.enhancement in ["esrgan", "opencv"] else 1.0
-        
-        # -- Step 3: IndividualBB Detection --
-        res2 = indiv_model.predict(source=sharp, imgsz=256, verbose=False)
-        pred_indiv_boxes = []
-        s2_ious = []
-        
-        if res2 and len(res2[0].boxes) > 0:
-            pred_indiv_boxes = res2[0].boxes.xyxy.cpu().numpy()
-            pred_indiv_boxes = sorted(pred_indiv_boxes, key=lambda b: b[0])
+        for enh_method in ["none", "esrgan"]:
+            # -- Step 2: Sharpening --
+            sharp = enhance_digit(crop, upscale_factor=2.0, method=enh_method)
+            scale = 2.0 if enh_method in ["esrgan", "opencv"] else 1.0
             
-            for digit in digit_info:
-                dx1, dy1, dx2, dy2 = digit['bbox']
-                nx1, ny1 = (dx1 - gx1) * scale, (dy1 - gy1) * scale
-                nx2, ny2 = (dx2 - gx1) * scale, (dy2 - gy1) * scale
-                gt_box_sharp = (nx1, ny1, nx2, ny2)
+            # -- Step 3: IndividualBB Detection --
+            res2 = indiv_model.predict(source=sharp, imgsz=256, verbose=False)
+            pred_indiv_boxes = []
+            s2_ious = []
+            
+            if res2 and len(res2[0].boxes) > 0:
+                iboxes = res2[0].boxes.xyxy.cpu().numpy()
+                iconfs = res2[0].boxes.conf.cpu().numpy()
+                pred_indiv_boxes, _ = nms_individual_boxes(iboxes, iconfs, iou_thresh=0.45)
+                pred_indiv_boxes = sorted(pred_indiv_boxes, key=lambda b: b[0])
                 
-                best_iou = 0
-                for pbox in pred_indiv_boxes:
-                    iou = calculate_iou(gt_box_sharp, pbox)
-                    best_iou = max(best_iou, iou)
-                s2_ious.append(best_iou)
-
-        # -- Step 4: Classification & Assembly --
-        predicted_digits = []
-        pred_crops = []
-        for ibox in pred_indiv_boxes:
-            try:
-                inputs = preprocess_crop(sharp, (ibox[0], ibox[1], ibox[2], ibox[3])).unsqueeze(0).to(device)
-                with torch.no_grad():
-                    out = classifier(inputs)
-                    digit = out.argmax(dim=1).item()
-                    predicted_digits.append(str(digit))
+                for digit in digit_info:
+                    dx1, dy1, dx2, dy2 = digit['bbox']
+                    nx1, ny1 = (dx1 - gx1) * scale, (dy1 - gy1) * scale
+                    nx2, ny2 = (dx2 - gx1) * scale, (dy2 - gy1) * scale
+                    gt_box_sharp = (nx1, ny1, nx2, ny2)
                     
-                    # For error analysis
-                    ix1, iy1, ix2, iy2 = map(int, ibox)
-                    d_crop = sharp[max(0,iy1):min(sharp.shape[0],iy2), max(0,ix1):min(sharp.shape[1],ix2)]
-                    pred_crops.append(d_crop)
-            except:
-                continue
-        
-        pred_number = "".join(predicted_digits)
-        correct_digits, total_gt_digits, succession_rate = calculate_digit_accuracy(gt_number, pred_number)
-        
-        digit_pairs = []
-        if has_label:
-            for i in range(max(len(gt_number), len(pred_number))):
-                g = gt_number[i] if i < len(gt_number) else 'N'
-                p = pred_number[i] if i < len(pred_number) else 'N'
-                digit_pairs.append((g, p))
+                    best_iou = 0
+                    for pbox in pred_indiv_boxes:
+                        iou = calculate_iou(gt_box_sharp, pbox)
+                        best_iou = max(best_iou, iou)
+                    s2_ious.append(best_iou)
 
-        results.append({
-            'sample_id': s['sample_id'],
-            'gt': gt_number if has_label else "N/A",
-            'pred': pred_number,
-            'correct': (pred_number == gt_number) if has_label else None,
-            'digit_acc': (correct_digits / total_gt_digits) if has_digit_boxes and total_gt_digits > 0 else None,
-            'succession_rate': succession_rate if has_digit_boxes else None,
-            'correct_digits': correct_digits if has_digit_boxes else None,
-            'total_digits': total_gt_digits if has_digit_boxes else None,
-            'category': s['category'],
-            's1_iou': s1_iou,
-            's2_iou_avg': np.mean(s2_ious) if s2_ious and has_digit_boxes else None,
-            'has_digit_boxes': has_digit_boxes,
-            'has_label': has_label,
-            'digit_pairs': digit_pairs,
-            # Data for visualization
-            'vis_img': img,
-            'vis_crop': crop,
-            'vis_sharp': sharp,
-            'vis_gx': (gx1, gy1, gx2, gy2),
-            'vis_iboxes': pred_indiv_boxes,
-            'vis_pred_crops': pred_crops,
-            'vis_preds': predicted_digits
-        })
+            # -- Step 4: Classification & Assembly --
+            predicted_digits = []
+            pred_crops = []
+            for ibox in pred_indiv_boxes:
+                try:
+                    inputs = preprocess_crop(sharp, (ibox[0], ibox[1], ibox[2], ibox[3])).unsqueeze(0).to(device)
+                    with torch.no_grad():
+                        out = classifier(inputs)
+                        digit = out.argmax(dim=1).item()
+                        predicted_digits.append(str(digit))
+                        
+                        # For error analysis
+                        ix1, iy1, ix2, iy2 = map(int, ibox)
+                        d_crop = sharp[max(0,iy1):min(sharp.shape[0],iy2), max(0,ix1):min(sharp.shape[1],ix2)]
+                        pred_crops.append(d_crop)
+                except:
+                    continue
+            
+            pred_number = "".join(predicted_digits)
+            correct_digits, total_gt_digits, succession_rate = calculate_digit_accuracy(gt_number, pred_number)
+            
+            digit_pairs = []
+            if has_label:
+                for i in range(max(len(gt_number), len(pred_number))):
+                    g = gt_number[i] if i < len(gt_number) else 'N'
+                    p = pred_number[i] if i < len(pred_number) else 'N'
+                    digit_pairs.append((g, p))
+
+            results.append({
+                'sample_id': s['sample_id'],
+                'gt': gt_number if has_label else "N/A",
+                'pred': pred_number,
+                'correct': (pred_number == gt_number) if has_label else None,
+                'digit_acc': (correct_digits / total_gt_digits) if has_digit_boxes and total_gt_digits > 0 else None,
+                'succession_rate': succession_rate if has_digit_boxes else None,
+                'correct_digits': correct_digits if has_digit_boxes else None,
+                'total_digits': total_gt_digits if has_digit_boxes else None,
+                'category': s['category'],
+                'enhancement': enh_method,
+                's1_iou': s1_iou,
+                's2_iou_avg': np.mean(s2_ious) if s2_ious and has_digit_boxes else None,
+                'has_digit_boxes': has_digit_boxes,
+                'has_label': has_label,
+                'digit_pairs': digit_pairs,
+                # Data for visualization
+                'vis_img': img,
+                'vis_crop': crop,
+                'vis_sharp': sharp,
+                'vis_gx': (gx1, gy1, gx2, gy2),
+                'vis_iboxes': pred_indiv_boxes,
+                'vis_pred_crops': pred_crops,
+                'vis_preds': predicted_digits
+            })
 
     # 4. Reporting
     df = pd.DataFrame(results)

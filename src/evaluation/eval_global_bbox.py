@@ -13,6 +13,7 @@ sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from utils.data_utils import iter_new_samples, get_gt_from_anno
 from utils.metrics import calculate_iou
+from utils.bbox_utils import merge_global_boxes
 
 def main():
     import argparse
@@ -48,9 +49,10 @@ def main():
     random.seed(42)
     eval_samples = []
     if samples_by_cat:
-        per_cat = args.max_samples // len(samples_by_cat)
+        total_samples = sum(len(s) for s in samples_by_cat.values())
         for cat, samps in samples_by_cat.items():
             random.shuffle(samps)
+            per_cat = max(1, int(round(args.max_samples * (len(samps) / total_samples))))
             eval_samples.extend(samps[:per_cat])
         random.shuffle(eval_samples)
 
@@ -73,9 +75,9 @@ def main():
         conf = 0.0
 
         if res and len(res[0].boxes) > 0:
-            best_idx = res[0].boxes.conf.argmax().item()
-            pred_global = res[0].boxes.xyxy[best_idx].cpu().numpy()
-            conf = res[0].boxes.conf[best_idx].item()
+            all_gboxes = res[0].boxes.xyxy.cpu().numpy()
+            pred_global = merge_global_boxes(all_gboxes)
+            conf = res[0].boxes.conf.max().item()
             if global_boxes:
                 iou = calculate_iou(global_boxes[0], pred_global)
 
