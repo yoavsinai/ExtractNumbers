@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 outputs
 slurm_logs/
+Mati_TODO 
 # Models
 yolov8n.pt
 .env

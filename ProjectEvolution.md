@@ -181,64 +181,92 @@ example for image sharpening (not cherry picked. if you want you can alter the v
 ---
 
 ### 📈 Results
-הכל פה צריך לעדכן- מתי סליחה מראש🦥
 
 
 #### 1. Global Bounding Box Detection
 
 | Metric | Overall | Handwritten | SVHN | Synthetic |
 | :--- | :--- | :--- | :--- | :--- |
-| mAP50 | — | — | — | — |
-| Precision | — | — | — | — |
-| Recall | — | — | — | — |
+| mAP50 | 90.20% | 84.60% | 95.80% | N/A |
+| Precision | 93.76% | 90.97% | 96.38% | N/A |
+| Recall | 96.20% | 93.00% | 99.40% | N/A |
 
 ---
 
-#### 2. Image Sharpening Benchmark — All 10 Methods
+#### 2. Comprehensive Image Enhancement Study (Upscaling & Sharpening)
 
-To find the best enhancement for our pipeline, we evaluated all 10 available sharpening/super-resolution methods using `src/evaluation/run_all_enhancements.py`.
+We conducted a deep dive into image enhancement to see if AI-powered upscaling or traditional sharpening could improve our OCR accuracy. We tested 10 different methods across three distinct entry points in the pipeline.
 
 **The 10 methods evaluated:**
+`none`, `unsharp_mask`, `clahe`, `esrgan`, `edsr`, `lapsrn`, `realcugan`, `bsrgan`, `swiniR`, `diffusion`.
 
-| # | Method | Description |
-| :--- | :--- | :--- |
-| 1 | `none` | Baseline — no enhancement |
-| 2 | `unsharp_mask` | Classic Gaussian-blur-based unsharp masking |
-| 3 | `clahe` | Contrast Limited Adaptive Histogram Equalization |
-| 4 | `esrgan` | Real-ESRGAN deep-learning super-resolution |
-| 5 | `edsr` | EDSR — Enhanced Deep Residual Networks |
-| 6 | `lapsrn` | LapSRN — Laplacian Pyramid SR Network |
-| 7 | `realcugan` | Real-CUGAN — lightweight GAN super-resolution |
-| 8 | `bsrgan` | BSRGAN — Blind Super-Resolution GAN |
-| 9 | `swiniR` | SwinIR — Swin Transformer Image Restoration |
-| 10 | `diffusion` | Diffusion Upscaler — Stable Diffusion 4× |
+---
 
-**Statistics Per Method:**
+##### 2.1 Approach A: Mid-Pipeline Enhancement
+*Enhancement applied to the cropped number sequence (after GlobalBB).*
 
-> Mati sorry in advance 🦥
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`none` (Best)** | **68.00%** | **80.62%** | **0.7612** | **0.7585** | **92.87%** |
+| `unsharp_mask` | 66.40% | 79.78% | 0.7612 | 0.7537 | 92.18% |
+| `clahe` | 58.20% | 74.33% | 0.7612 | 0.7401 | 91.53% |
+| `esrgan` | 61.00% | 75.57% | 0.7612 | 0.7542 | 90.69% |
+| `edsr` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `lapsrn` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `realcugan` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `bsrgan` | 67.50% | 80.58% | 0.7612 | 0.7563 | 92.51% |
+| `swiniR` | 54.20% | 71.07% | 0.7612 | 0.7189 | 89.27% |
+| `diffusion` | 67.00% | 79.86% | 0.7612 | 0.7545 | 92.58% |
 
-| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
-| :--- | :--- | :--- | :--- | :--- |
-| `none` | — | — | — | — |
-| `unsharp_mask` | — | — | — | — |
-| `clahe` | — | — | — | — |
-| `esrgan` | — | — | — | — |
-| `edsr` | — | — | — | — |
-| `lapsrn` | — | — | — | — |
-| `realcugan` | — | — | — | — |
-| `bsrgan` | — | — | — | — |
-| `swiniR` | — | — | — | — |
-| `diffusion` | — | — | — | — |
+**Performance by Data Category (`none` baseline):**
+| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| Handwritten | 56.40% | 73.59% | 0.7183 | 0.7759 | 91.92% |
+| SVHN | 79.60% | 87.65% | 0.8040 | 0.7423 | 93.76% |
 
-> **Selected Method:** Based on the benchmark results above, we chose the method: **`___`**
+---
 
-**Selected Method Performance — By Data Category:**
+##### 2.2 Approach B: Pre-Enhancement
+*Enhancement applied to the full source image before any detection stages.*
 
-| Category | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU |
-| :--- | :--- | :--- | :--- | :--- |
-| Handwritten | — | — | — | — |
-| SVHN | — | — | — | — |
-| Synthetic | — | — | — | — |
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate | ms/img |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **`none` (Best)** | **68.00%** | **80.62%** | **0.7612** | 0.7585 | 92.87% | 52.7 |
+| `unsharp_mask` | 67.00% | 79.80% | 0.7583 | 0.7583 | **93.79%** | 55.7 |
+| `clahe` | 60.30% | 75.08% | 0.7277 | 0.7499 | 90.65% | 65.0 |
+| `esrgan` | 61.20% | 76.38% | 0.7455 | 0.7481 | 91.25% | 7183.6 |
+| `edsr` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 54.3 |
+| `lapsrn` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 53.6 |
+| `realcugan` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 53.9 |
+| `bsrgan` | 67.50% | 80.31% | 0.7608 | **0.7614** | 93.12% | 53.5 |
+| `swiniR` | 50.50% | 65.87% | 0.6656 | 0.7192 | 90.05% | 55.0 |
+| `diffusion` | 67.00% | 80.08% | 0.7585 | 0.7566 | 93.21% | 56.6 |
+
+---
+
+##### 2.3 Approach C: Post-Enhancement
+*Enhancement applied only to the isolated digit crops before classification.*
+
+| Method | Full Seq Accuracy | Mean Digit Accuracy | Stage 1 IoU | Stage 3 IoU | Succ Rate |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **`none` (Best)** | **67.00%** | **80.26%** | **0.7612** | **0.7585** | 92.38% |
+| `unsharp_mask` | 66.80% | 80.23% | 0.7612 | 0.7585 | **92.77%** |
+| `clahe` | 56.50% | 73.52% | 0.7612 | 0.7585 | 89.77% |
+| `esrgan` | 57.00% | 73.38% | 0.7612 | 0.7585 | 89.09% |
+| `edsr` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `lapsrn` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `realcugan` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `bsrgan` | 66.70% | 80.00% | 0.7612 | 0.7585 | 92.59% |
+| `swiniR` | 62.90% | 77.74% | 0.7612 | 0.7585 | 91.03% |
+| `diffusion` | 66.70% | 80.08% | 0.7612 | 0.7585 | 92.49% |
+
+---
+
+#### 🏁 Final Verdict: Waiving Enhancements
+After testing all three positioning strategies, we reached a definitive conclusion:
+* **Accuracy:** No enhancement method outperformed the raw baseline. The AI upscalers often introduced artifacts that confused the YOLO detectors.
+* **Latency:** Deep-learning methods like ESRGAN add prohibitive inference time (over 7 seconds/image) without any accuracy benefit.
+* **Decision:** We have decided to **disable all image enhancement and upscaling** in the production pipeline. The system performs best—and fastest—on raw imagery.
 
 ---
 
@@ -246,7 +274,9 @@ To find the best enhancement for our pipeline, we evaluated all 10 available sha
 
 | Metric | Overall | Handwritten | SVHN | Synthetic |
 | :--- | :--- | :--- | :--- | :--- |
-| Accuracy | — | — | — | — |
+| Accuracy | 86.60% (F1-macro 82.00%) | 77.00% | 87.00% | N/A |
+
+*(Note: Classification accuracy is derived from the precision/recall F1 scores of the End-to-End benchmark's classification stage.)*
 
 ---
 
@@ -254,13 +284,14 @@ To find the best enhancement for our pipeline, we evaluated all 10 available sha
 
 | Metric | Overall | Handwritten | SVHN | Synthetic |
 | :--- | :--- | :--- | :--- | :--- |
-| Full Sequence Accuracy | — | — | — | — |
-| Mean Digit Accuracy (Pos) | — | — | — | — |
-| Stage 1 (Global) Mean IoU | — | — | — | — |
-| Stage 3 (Individual) Mean IoU | — | — | — | — |
-| Succession Rate | — | — | — | — |
+| Full Sequence Accuracy | 68.00% | 56.40% | 79.60% | N/A |
+| Mean Digit Accuracy (Pos) | 80.62% | 73.59% | 87.65% | N/A |
+| Succession Rate | 92.87% | 91.92% | 93.76% | N/A |
+| Stage 1 (Global) Mean IoU | 0.7612 | 0.7183 | 0.8040 | N/A |
+| Stage 3 (Individual) Mean IoU | 0.7585 | 0.7759 | 0.7423 | N/A |
 
-> **Conclusion:** *(to be written after benchmark results are in)*
+> **Conclusion:** *we need to find another way to improve the OCR accuracy. the upscaling just wont do it. maybe we need to crop the image with more space? maybe more training?**
+
 
 **Full Pipeline Visualization:**
 
@@ -268,7 +299,4 @@ The generated dashboard and detailed error analysis are captured in the evaluati
 
 ![Stage 4 Step-by-Step Visualization](assets/example4.png)
 
-
-
 ---
-

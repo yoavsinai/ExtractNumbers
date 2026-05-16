@@ -46,11 +46,11 @@ class RealCUGANEnhancer(BaseEnhancer):
             
             # Try to load Real-CUGAN weights; fallback to RealESRGAN if not available
             try:
-                self.model.load_weights(f'weights/RealCUGAN_x{self.scale_factor}.pth', download=True)
+                self.model.load_weights(f'outputs/trained_models/RealCUGAN_x{self.scale_factor}.pth', download=True)
                 print(f"✓ Real-CUGAN model loaded")
             except Exception:
                 print(f"⚠ Real-CUGAN weights not available, using RealESRGAN as fallback")
-                self.model.load_weights(f'weights/RealESRGAN_x{self.scale_factor}plus.pth', download=True)
+                self.model.load_weights(f'outputs/trained_models/RealESRGAN_x{self.scale_factor}plus.pth', download=True)
         except Exception as e:
             print(f"⚠ Warning: Could not load Real-CUGAN model: {e}")
             print(f"  Will use bicubic resize as fallback")

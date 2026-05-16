@@ -156,16 +156,9 @@ def main():
             })
             continue
             
-        # -- Step 2: Sharpening (using the new enhancer factory) --
-        sharp = enhancer.enhance(crop)
-        
-        # Determine scale factor based on output size for coordinate mapping
-        if crop.shape[0] > 0 and crop.shape[1] > 0:
-            scale_y = sharp.shape[0] / crop.shape[0]
-            scale_x = sharp.shape[1] / crop.shape[1]
-            scale = (scale_x + scale_y) / 2.0 # Assume uniform scaling
-        else:
-            scale = 1.0
+        # -- Step 2: No sharpening yet --
+        sharp = crop
+        scale = 1.0
         
         # -- Step 3: IndividualBB Detection --
         res2 = indiv_model.predict(source=sharp, imgsz=256, verbose=False)
@@ -188,20 +181,33 @@ def main():
                     best_iou = max(best_iou, iou)
                 s2_ious.append(best_iou)
 
-        # -- Step 4: Classification & Assembly --
+        # -- Step 4: Classification & Assembly (Post-Enhancement) --
         predicted_digits = []
         pred_crops = []
         for ibox in pred_indiv_boxes:
             try:
-                inputs = preprocess_crop(sharp, (ibox[0], ibox[1], ibox[2], ibox[3])).unsqueeze(0).to(device)
+                # 1. Crop the raw digit out
+                ix1, iy1, ix2, iy2 = map(int, ibox)
+                digit_crop = sharp[max(0,iy1):min(sharp.shape[0],iy2), max(0,ix1):min(sharp.shape[1],ix2)]
+                
+                # 2. Enhance just this specific digit
+                if digit_crop.size > 0:
+                    sharp_digit = enhancer.enhance(digit_crop)
+                else:
+                    sharp_digit = digit_crop
+                
+                # 3. Classify
+                if sharp_digit.size > 0:
+                    h, w = sharp_digit.shape[:2]
+                    inputs = preprocess_crop(sharp_digit, (0, 0, w, h)).unsqueeze(0).to(device)
+                else:
+                    inputs = preprocess_crop(sharp, (ibox[0], ibox[1], ibox[2], ibox[3])).unsqueeze(0).to(device)
+                    
                 with torch.no_grad():
                     out = classifier(inputs)
                     digit = out.argmax(dim=1).item()
                     predicted_digits.append(str(digit))
-                    
-                    ix1, iy1, ix2, iy2 = map(int, ibox)
-                    d_crop = sharp[max(0,iy1):min(sharp.shape[0],iy2), max(0,ix1):min(sharp.shape[1],ix2)]
-                    pred_crops.append(d_crop)
+                    pred_crops.append(sharp_digit)
             except:
                 continue
         
@@ -280,7 +286,7 @@ def main():
 
     log_print(cat_stats.to_string())
     
-    report_txt_path = os.path.join(REPORTS_DIR, f"enhancement_summary_{args.enhancement}.txt")
+    report_txt_path = os.path.join(REPORTS_DIR, f"postenhancement_summary_{args.enhancement}.txt")
     with open(report_txt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(report_lines))
     print(f"\n📝 Text report saved to: {report_txt_path}")
@@ -292,7 +298,7 @@ def main():
         pass
         
     df_mini = df.drop(columns=[c for c in df.columns if c.startswith('vis_')])
-    df_mini.to_csv(os.path.join(REPORTS_DIR, f"enhancement_metrics_{args.enhancement}.csv"), index=False)
+    df_mini.to_csv(os.path.join(REPORTS_DIR, f"postenhancement_metrics_{args.enhancement}.csv"), index=False)
     print(f"\n💾 Detailed results saved to: {REPORTS_DIR}")
 
 if __name__ == "__main__":

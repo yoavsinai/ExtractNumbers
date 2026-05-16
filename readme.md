@@ -169,7 +169,7 @@ The suite is divided into scripts for isolated performance analysis. You can now
 
 ```bash
 # Run ALL evaluations (Stages 1-4 + Full End-to-End Pipeline)
-python src/evaluation/evaluate_all.py --max-samples 100
+python src/evaluation/eval_all.py --max-samples 100
 
 # Full End-to-End pipeline benchmark with error analysis dashboard
 python src/evaluation/eval_pipeline.py --max-samples 500 --save-viz --analyze-errors

@@ -58,7 +58,7 @@ def upscale_image(
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = RealESRGAN(device, scale=scale)
-        model.load_weights(f'weights/RealESRGAN_x{scale}plus.pth', download=True)
+        model.load_weights(f'outputs/trained_models/RealESRGAN_x{scale}plus.pth', download=True)
         
         upscaled = model.predict(img_rgb)
         

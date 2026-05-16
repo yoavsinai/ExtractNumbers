@@ -14,7 +14,7 @@ def print_comparison_summary(methods, reports_dir):
     print("📊 FINAL COMPARISON SUMMARY — ALL ENHANCEMENT METHODS")
     print("="*70)
 
-    header = f"{'Method':<16} {'Seq Acc':>10} {'Digit Acc':>10} {'S1 IoU':>10} {'S3 IoU':>10}"
+    header = f"{'Method':<16} {'Seq Acc':>10} {'Digit Acc':>10} {'S1 IoU':>10} {'S3 IoU':>10} {'Succ Rate':>10}"
     print(header)
     print("-" * len(header))
 
@@ -23,13 +23,14 @@ def print_comparison_summary(methods, reports_dir):
         "Digit Acc": r"Mean Digit Accuracy \(Pos\):\s+([\d.]+%)",
         "S1 IoU":    r"Stage 1 \(Global\) Mean IoU:\s+([\d.]+)",
         "S3 IoU":    r"Stage 3 \(Indiv\)  Mean IoU:\s+([\d.]+)",
+        "Succ Rate": r"Succession Rate:\s+([\d.]+%)",
     }
 
     rows = []
     for method in methods:
         path = os.path.join(reports_dir, f"enhancement_summary_{method}.txt")
         if not os.path.exists(path):
-            rows.append((method, "N/A", "N/A", "N/A", "N/A"))
+            rows.append((method, "N/A", "N/A", "N/A", "N/A", "N/A"))
             continue
         with open(path, encoding="utf-8") as f:
             text = f.read()
@@ -37,10 +38,10 @@ def print_comparison_summary(methods, reports_dir):
         for key, pat in patterns.items():
             m = re.search(pat, text)
             vals[key] = m.group(1) if m else "N/A"
-        rows.append((method, vals["Seq Acc"], vals["Digit Acc"], vals["S1 IoU"], vals["S3 IoU"]))
+        rows.append((method, vals["Seq Acc"], vals["Digit Acc"], vals["S1 IoU"], vals["S3 IoU"], vals.get("Succ Rate", "N/A")))
 
     for row in rows:
-        print(f"{row[0]:<16} {row[1]:>10} {row[2]:>10} {row[3]:>10} {row[4]:>10}")
+        print(f"{row[0]:<16} {row[1]:>10} {row[2]:>10} {row[3]:>10} {row[4]:>10} {row[5]:>10}")
 
     print("="*70)
 
