@@ -5,11 +5,12 @@ This section documents the iterative improvements made to the **ExtractNumbers**
 ---
 
 ## 🟢 Stage 1: Foundation & Global Bounding-Box Detection
+
 **Focus:** Establishing the automated data pipeline and baseline detection metrics.
 
-*   **BB Strategy:** **Global Bounding Box (GlobalBB).** The model focused on identifying the **entire number** sequence as a single entity within noisy source images.
-*   **Initial Setup:** Automated data fetching and processing pipeline (MNIST, SVHN, and Synthetic data).
-*   **Key Model:** YOLOv8n (Initial training for 20 epochs).
+* **BB Strategy:** **Global Bounding Box (GlobalBB).** The model focused on identifying the **entire number** sequence as a single entity within noisy source images.
+* **Initial Setup:** Automated data fetching and processing pipeline (MNIST, SVHN, and Synthetic data).
+* **Key Model:** YOLOv8n (Initial training for 20 epochs).
 
 ### 📈 Results
 | Metric | Value |
@@ -32,18 +33,21 @@ This section documents the iterative improvements made to the **ExtractNumbers**
 
 > **Conclusion:** While the pipeline was functional, the model struggled significantly with "Natural" images and lacked the precision to isolate overlapping digits.
 ---
-## 🟢 Stage 2: Hierarchical 3-Step Process & Basic Sharpening 
+## 🟢 Stage 2: Hierarchical 3-Step Process & Basic Sharpening
+
 **Focus:** Realizing that global detection isn't enough, we introduced a hierarchical flow to isolate individual digits.
 
 **Architecture Diagram (The 3-Step Flow):**
+
 ![Stage 2 Architecture](assets/architecture2.png)
 
-### 🔄 The 3-Step Workflow:
-1.  **Global Detection:** Identify the Bounding Box (BB) for the **entire number sequence**.
-2.  **Preprocessing:** Crop the global BB and apply **Basic Sharpening** (Unsharp Masking) and upscaling to separate tight digits (NEW).
-3.  **Individual Localization:** Perform a second detection (IndividualBB) to find the **BB of each specific digit** within the sharpened crop (NEW).
+### 🔄 The 3-Step Workflow
 
-*   **Augmentations:** Added White Noise, Blur, and Stretching/Pixelation to improve robustness against various image qualities.
+1. **Global Detection:** Identify the Bounding Box (BB) for the **entire number sequence**.
+2. **Preprocessing:** Crop the global BB and apply **Basic Sharpening** (Unsharp Masking) and upscaling to separate tight digits (NEW).
+3. **Individual Localization:** Perform a second detection (IndividualBB) to find the **BB of each specific digit** within the sharpened crop (NEW).
+
+* **Augmentations:** Added White Noise, Blur, and Stretching/Pixelation to improve robustness against various image qualities.
 
 
 ### 📈 Results
@@ -89,7 +93,40 @@ This section documents the iterative improvements made to the **ExtractNumbers**
 *   **Succession Rate Metric:** Introduced a conditional probability metric to measure sequence consistency:
   $$P(D_{i+1} \text{ correct} | D_i \text{ correct})$$
 
+### 🏗️ Unified Data Structure
 
+To support multi-stage training and evaluation, we transitioned to a standardized dataset hierarchy and schema. This allows all scripts (detection, classification, and evaluation) to share a single source of truth.
+
+**Directory Structure:**
+
+* `data/digits_data/<dataset>/sample_<id>/original.png` (Source image)
+* `data/digits_data/<dataset>/sample_<id>/annotations.json` (Unified metadata)
+
+**Metadata Schema (`annotations.json`):**
+
+```json
+{
+    "image_metadata": {
+        "sample_index": 0,
+        "filename": "original.png",
+        "width": 695,
+        "height": 767
+    },
+    "detected_numbers": [
+        {
+            "full_value": "46441",
+            "full_bounding_box": { "x": 360, "y": 476, "width": 306, "height": 82 },
+            "digits": [
+                {
+                    "label": 4,
+                    "bounding_box": { "x": 360, "y": 480, "width": 55, "height": 64 }
+                }
+                // ... additional digits
+            ]
+        }
+    ]
+}
+```
 
 ### 📈 Results
 #### 1. Individual Digit Localization
@@ -172,7 +209,8 @@ example for image sharpening (not cherry picked. if you want you can alter the v
 
 *   **Sharpening Benchmark:** Evaluated all 10 enhancement methods to determine the best preprocessing step for the pipeline.
 *   **Recall Bug Fix:** Corrected the over-100% recall issue — recall was previously calculated as `predicted boxes / GT boxes` instead of the standard `TP / (TP + FN)`.
-*   **Evaluation:** *(in progress)*
+*   **Evaluation Dataset Sampling:** Updated all evaluation scripts to use proportional stratified sampling instead of dividing evenly by category count. This ensures evaluation datasets are built with the same ratio as the full dataset (e.g. maintaining the exact ratio between synthetic and real data).
+*   **Evaluation:** Separated the output of each evaluation script by data category AND dynamically included evaluation of both with and without AI sharpening internally in each benchmark to comprehensively reflect performance impact.
 *   **Captured Data:** New evaluation images captured externally will be added to the dataset. *(in progress)*
 *   **Video Pipeline — Data:** Collecting video data for inference. *(in progress)*
 *   **Video Pipeline — Frame Exploration:** Investigating optimal frame sampling strategies. *(in progress)*
@@ -298,5 +336,16 @@ After testing all three positioning strategies, we reached a definitive conclusi
 The generated dashboard and detailed error analysis are captured in the evaluation reports under `outputs/reports`.
 
 ![Stage 4 Step-by-Step Visualization](assets/example4.png)
+
+---
+
+## 🟢 Stage 5: Bounding Box Duplicate Handling
+
+**Focus:** Resolving issues with duplicate bounding boxes from YOLO predictions.
+
+*   **Global Bounding Boxes:** When multiple global bounding boxes are detected for a number sequence, they are now **merged** into a single encompassing bounding box (taking the minimum x/y and maximum x/y of all detected boxes). This ensures that if the model predicts the left and right halves of a number sequence separately, they are unified into a single crop.
+*   **Individual Digit Bounding Boxes:** Overlapping digit predictions are now filtered using a custom **Non-Maximum Suppression (NMS)** step. If multiple bounding boxes overlap significantly (IoU > 0.45) on the same digit, only the box with the highest confidence is kept.
+
+These improvements have been integrated into both the main inference script (`predict_single.py`) and the evaluation pipelines (`eval_pipeline.py`, `eval_global_bbox.py`, `eval_individual_bbox.py`).
 
 ---

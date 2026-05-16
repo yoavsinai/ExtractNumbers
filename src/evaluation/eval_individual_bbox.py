@@ -13,6 +13,7 @@ sys.path.append(os.path.join(BASE_DIR, "src"))
 from image_preprocessing.digit_preprocessor import enhance_digit
 from utils.data_utils import iter_new_samples, get_gt_from_anno
 from utils.metrics import calculate_iou
+from utils.bbox_utils import nms_individual_boxes
 
 def main():
     import argparse
@@ -40,10 +41,20 @@ def main():
     
     # Exclude categories without individual digit annotations
     excluded_categories = ['race_numbers', 'ocr_trains']
-    filtered_samples = [s for s in all_samples if s['category'] not in excluded_categories]
-    
-    random.shuffle(filtered_samples)
-    eval_samples = filtered_samples[:args.max_samples]
+    from collections import defaultdict
+    samples_by_cat = defaultdict(list)
+    for s in all_samples:
+        if s['category'] not in excluded_categories:
+            samples_by_cat[s['category']].append(s)
+            
+    eval_samples = []
+    if samples_by_cat:
+        total_samples = sum(len(s) for s in samples_by_cat.values())
+        for cat, samps in samples_by_cat.items():
+            random.shuffle(samps)
+            num_samples = int(args.max_samples * (len(samps) / total_samples))
+            eval_samples.extend(samps[:num_samples])
+        random.shuffle(eval_samples)
     
     results = []
     all_ious = []
@@ -64,43 +75,47 @@ def main():
         crop = img[gy1:gy2, gx1:gx2]
         if crop.size == 0: continue
             
-        sharp = enhance_digit(crop, upscale_factor=2.0)
-        
-        res = model.predict(source=sharp, imgsz=256, verbose=False)
-        pred_indiv_boxes = []
-        s3_ious = []
-        
-        if res and len(res[0].boxes) > 0:
-            pred_indiv_boxes = res[0].boxes.xyxy.cpu().numpy()
-            pred_confs = res[0].boxes.conf.cpu().numpy()
+        for enh_method in ["none", "esrgan"]:
+            sharp = enhance_digit(crop, upscale_factor=2.0, method=enh_method)
+            scale = 2.0 if enh_method in ["esrgan", "opencv"] else 1.0
             
-            for idx, digit in enumerate(digit_info):
-                dx1, dy1, dx2, dy2 = digit['bbox']
-                # Map to sharpened crop coordinate
-                nx1, ny1 = (dx1 - gx1) * 2.0, (dy1 - gy1) * 2.0
-                nx2, ny2 = (dx2 - gx1) * 2.0, (dy2 - gy1) * 2.0
-                gt_box_sharp = (nx1, ny1, nx2, ny2)
+            res = model.predict(source=sharp, imgsz=256, verbose=False)
+            pred_indiv_boxes = []
+            s3_ious = []
+            
+            if res and len(res[0].boxes) > 0:
+                pred_indiv_boxes = res[0].boxes.xyxy.cpu().numpy()
+                pred_confs = res[0].boxes.conf.cpu().numpy()
+                pred_indiv_boxes, pred_confs = nms_individual_boxes(pred_indiv_boxes, pred_confs, iou_thresh=0.45)
                 
-                best_iou = 0
-                best_conf = 0
-                for p_idx, pbox in enumerate(pred_indiv_boxes):
-                    iou = calculate_iou(gt_box_sharp, pbox)
-                    if iou > best_iou:
-                        best_iou = iou
-                        best_conf = pred_confs[p_idx]
-                
-                s3_ious.append(best_iou)
-                all_ious.append(best_iou)
-                all_confs.append(best_conf)
+                for idx, digit in enumerate(digit_info):
+                    dx1, dy1, dx2, dy2 = digit['bbox']
+                    # Map to sharpened crop coordinate
+                    nx1, ny1 = (dx1 - gx1) * scale, (dy1 - gy1) * scale
+                    nx2, ny2 = (dx2 - gx1) * scale, (dy2 - gy1) * scale
+                    gt_box_sharp = (nx1, ny1, nx2, ny2)
+                    
+                    best_iou = 0
+                    best_conf = 0
+                    for p_idx, pbox in enumerate(pred_indiv_boxes):
+                        iou = calculate_iou(gt_box_sharp, pbox)
+                        if iou > best_iou:
+                            best_iou = iou
+                            best_conf = pred_confs[p_idx]
+                    
+                    s3_ious.append(best_iou)
+                    all_ious.append(best_iou)
+                    all_confs.append(best_conf)
 
-        results.append({
-            'sample_id': s['sample_id'],
-            'category': s['category'],
-            'avg_iou': np.mean(s3_ious) if s3_ious else 0,
-            'num_gt_digits': len(digit_info),
-            'num_pred_digits': len(pred_indiv_boxes),
-            'recall': len(s3_ious) / len(digit_info) if len(digit_info) > 0 else 0
-        })
+            results.append({
+                'sample_id': s['sample_id'],
+                'category': s['category'],
+                'enhancement': enh_method,
+                'avg_iou': np.mean(s3_ious) if s3_ious else 0,
+                'num_gt_digits': len(digit_info),
+                'num_pred_digits': len(pred_indiv_boxes),
+                'recall': len(s3_ious) / len(digit_info) if len(digit_info) > 0 else 0
+            })
 
     df = pd.DataFrame(results)
     

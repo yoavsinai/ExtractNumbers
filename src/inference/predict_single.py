@@ -11,6 +11,7 @@ sys.path.append(os.path.join(BASE_DIR, "src"))
 
 from image_preprocessing.digit_preprocessor import enhance_digit
 from digit_recognizer.digit_recognizer import build_digit_model, get_device, preprocess_crop
+from utils.bbox_utils import merge_global_boxes, nms_individual_boxes
 
 def predict_image(image_path, model_dir):
     device = get_device()
@@ -37,9 +38,10 @@ def predict_image(image_path, model_dir):
     if not res1 or len(res1[0].boxes) == 0:
         return "No numbers detected."
     
-    # Use best global box
-    gbox = res1[0].boxes[0]
-    gx1, gy1, gx2, gy2 = map(int, gbox.xyxy[0].cpu().numpy())
+    # Merge all detected global boxes (handling duplicates)
+    all_gboxes = res1[0].boxes.xyxy.cpu().numpy()
+    gbox = merge_global_boxes(all_gboxes)
+    gx1, gy1, gx2, gy2 = map(int, gbox)
     h, w = img.shape[:2]
     gx1, gy1, gx2, gy2 = max(0, gx1), max(0, gy1), min(w, gx2), min(h, gy2)
     crop = img[gy1:gy2, gx1:gx2]
@@ -52,8 +54,11 @@ def predict_image(image_path, model_dir):
     if not res2 or len(res2[0].boxes) == 0:
         return "Detected container but no individual digits found."
     
-    # Sort boxes left to right
+    # Sort and NMS boxes
     iboxes = res2[0].boxes.xyxy.cpu().numpy()
+    iconfs = res2[0].boxes.conf.cpu().numpy()
+    iboxes, iconfs = nms_individual_boxes(iboxes, iconfs, iou_thresh=0.45)
+    
     iboxes = sorted(iboxes, key=lambda b: b[0])
     
     # 4. Classification

@@ -31,8 +31,19 @@ def main():
     all_samples = list(iter_new_samples(DATA_ROOT))
     import random
     random.seed(42)
-    random.shuffle(all_samples)
-    eval_samples = all_samples[:args.max_samples]
+    from collections import defaultdict
+    samples_by_cat = defaultdict(list)
+    for s in all_samples:
+        samples_by_cat[s['category']].append(s)
+        
+    eval_samples = []
+    if samples_by_cat:
+        total_samples = sum(len(s) for s in samples_by_cat.values())
+        for cat, samps in samples_by_cat.items():
+            random.shuffle(samps)
+            num_samples = int(args.max_samples * (len(samps) / total_samples))
+            eval_samples.extend(samps[:num_samples])
+        random.shuffle(eval_samples)
     
     results = []
     
@@ -52,27 +63,29 @@ def main():
         
         if crop.size == 0: continue
         
-        start_time = time.time()
-        sharp = enhance_digit(crop, upscale_factor=2.0)
-        end_time = time.time()
-        
-        duration = end_time - start_time
-        
-        if args.save_crops:
-            sample_name = os.path.splitext(os.path.basename(s['image_path']))[0]
-            cv2.imwrite(os.path.join(OUTPUT_DIR, f"{sample_name}_original.jpg"), crop)
-            cv2.imwrite(os.path.join(OUTPUT_DIR, f"{sample_name}_sharpened.jpg"), sharp)
-        
-        results.append({
-            'sample_id': s['sample_id'],
-            'category': s['category'],
-            'orig_w': crop.shape[1],
-            'orig_h': crop.shape[0],
-            'sharp_w': sharp.shape[1],
-            'sharp_h': sharp.shape[0],
-            'duration_sec': duration,
-            'pixels_processed': crop.shape[0] * crop.shape[1]
-        })
+        for enh_method in ["none", "esrgan"]:
+            start_time = time.time()
+            sharp = enhance_digit(crop, upscale_factor=2.0, method=enh_method)
+            end_time = time.time()
+            
+            duration = end_time - start_time
+            
+            if args.save_crops and enh_method == "esrgan":
+                sample_name = os.path.splitext(os.path.basename(s['image_path']))[0]
+                cv2.imwrite(os.path.join(OUTPUT_DIR, f"{sample_name}_original.jpg"), crop)
+                cv2.imwrite(os.path.join(OUTPUT_DIR, f"{sample_name}_sharpened.jpg"), sharp)
+            
+            results.append({
+                'sample_id': s['sample_id'],
+                'category': s['category'],
+                'enhancement': enh_method,
+                'orig_w': crop.shape[1],
+                'orig_h': crop.shape[0],
+                'sharp_w': sharp.shape[1],
+                'sharp_h': sharp.shape[0],
+                'duration_sec': duration,
+                'pixels_processed': crop.shape[0] * crop.shape[1]
+            })
 
     df = pd.DataFrame(results)
     
@@ -89,8 +102,8 @@ def main():
     print(f"Throughput:         {throughput:,.0f} pixels/sec")
     print(f"Avg Upscale Factor: {df['sharp_w'].mean() / df['orig_w'].mean():.2f}x")
     
-    print("\n📈 PERFORMANCE BY CATEGORY:")
-    cat_metrics = df.groupby('category').agg({
+    print("\n📈 PERFORMANCE BY CATEGORY & ENHANCEMENT:")
+    cat_metrics = df.groupby(['category', 'enhancement']).agg({
         'duration_sec': ['mean', 'std'],
         'pixels_processed': 'mean'
     })
