@@ -41,7 +41,7 @@ def main():
         total_samples = sum(len(s) for s in samples_by_cat.values())
         for cat, samps in samples_by_cat.items():
             random.shuffle(samps)
-            num_samples = int(args.max_samples * (len(samps) / total_samples))
+            num_samples = max(1, int(round(args.max_samples * (len(samps) / total_samples))))
             eval_samples.extend(samps[:num_samples])
         random.shuffle(eval_samples)
     

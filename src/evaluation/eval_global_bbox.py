@@ -52,7 +52,7 @@ def main():
         total_samples = sum(len(s) for s in samples_by_cat.values())
         for cat, samps in samples_by_cat.items():
             random.shuffle(samps)
-            per_cat = int(args.max_samples * (len(samps) / total_samples))
+            per_cat = max(1, int(round(args.max_samples * (len(samps) / total_samples))))
             eval_samples.extend(samps[:per_cat])
         random.shuffle(eval_samples)
 
