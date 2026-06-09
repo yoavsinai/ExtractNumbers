@@ -28,52 +28,74 @@ def iter_new_samples(data_root: str) -> List[Dict[str, str]]:
                     "anno_path": anno_path
                 })
     return samples
-
 def parse_anno_data(data: dict) -> Tuple[List[Tuple[float, float, float, float]], List[Dict], bool, str]:
     """
     Parse annotation dictionary.
     Returns:
         - List of global bounding boxes (x1, y1, x2, y2)
         - List of digit info dictionaries (bbox=(x1, y1, x2, y2), label=int)
-        - bool: has_digit_boxes (True if individual digit boxes exist)
-        - str: full_sequence_label (The complete number string, e.g. "123")
+        - bool: has_digit_boxes (True only if individual digit boxes with valid labels exist)
+        - str: full_sequence_label (the complete number string, e.g. "123")
     """
     global_boxes = []
     digit_info = []
     sequence_parts = []
-    
+
+    # Labels that mean "unknown" — used by Moving MNIST which has no ground truth digit identity
+    UNKNOWN_LABELS = {"digit", "digit_seq", None, -1, ""}
+    UNKNOWN_FULL_VALUES = {"digit_seq", "", None}
+
     for number in data.get('detected_numbers', []):
-        # Global BB
+        # --- Global bounding box ---
         bb = number.get('full_bounding_box', {})
         if bb and all(k in bb for k in ['x', 'y', 'width', 'height']):
             x1, y1 = bb['x'], bb['y']
             global_boxes.append((x1, y1, x1 + bb['width'], y1 + bb['height']))
-            
-        # Full Value if exists (preferred for sequence label)
-        if 'full_value' in number and number['full_value']:
-            sequence_parts.append({'x': bb.get('x', 0), 'label': str(number['full_value'])})
-            
-        # Individual Digits
-        num_digits = 0
+
+        # --- Full sequence value ---
+        # Only use it if it's a real transcription (not a placeholder like "digit_seq")
+        full_value = number.get('full_value')
+        if full_value not in UNKNOWN_FULL_VALUES:
+            sequence_parts.append({
+                'x': bb.get('x', 0),
+                'label': str(full_value)
+            })
+
+        # --- Individual digit boxes ---
         for digit in number.get('digits', []):
             dbb = digit.get('bounding_box', {})
-            if dbb and all(k in dbb for k in ['x', 'y', 'width', 'height']) and 'label' in digit:
-                dx1, dy1 = dbb['x'], dbb['y']
-                digit_info.append({
-                    'bbox': (dx1, dy1, dx1 + dbb['width'], dy1 + dbb['height']),
-                    'label': digit.get('label')
-                })
-                num_digits += 1
-                # If full_value was missing, we can build it from digits later
-                if not number.get('full_value'):
-                    sequence_parts.append({'x': dx1, 'label': str(digit['label'])})
-                
+            label = digit.get('label')
+
+            # Skip unknown/placeholder labels (Moving MNIST case)
+            if label in UNKNOWN_LABELS:
+                continue
+
+            if not (dbb and all(k in dbb for k in ['x', 'y', 'width', 'height'])):
+                continue
+
+            dx1, dy1 = dbb['x'], dbb['y']
+
+            # Cast label to int safely
+            try:
+                int_label = int(label)
+            except (ValueError, TypeError):
+                continue  # skip anything that can't be cast to a digit
+
+            digit_info.append({
+                'bbox': (dx1, dy1, dx1 + dbb['width'], dy1 + dbb['height']),
+                'label': int_label
+            })
+
+            # If full_value was missing/unknown, build sequence from individual digits
+            if full_value in UNKNOWN_FULL_VALUES:
+                sequence_parts.append({'x': dx1, 'label': str(int_label)})
+
     has_digit_boxes = len(digit_info) > 0
-    
-    # Sort sequence parts by x-coordinate to ensure correct reading order
-    sequence_parts.sort(key=lambda x: x['x'])
+
+    # Sort by x-coordinate for correct reading order left → right
+    sequence_parts.sort(key=lambda p: p['x'])
     full_sequence_label = "".join([p['label'] for p in sequence_parts])
-    
+
     return global_boxes, digit_info, has_digit_boxes, full_sequence_label
 
 def get_gt_from_anno(anno_path: str) -> Tuple[List[Tuple[float, float, float, float]], List[Dict], bool, str]:

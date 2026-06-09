@@ -132,7 +132,10 @@ def main():
 
             for digit in digit_info:
                 bbox = digit['bbox']
-                label = str(digit['label'])
+                label = digit['label']
+                if label == -1 or label == "digit" or label is None:
+                    continue  # skip MNIST digits — no ground truth label
+                label = str(label)
                 
                 try:
                     # Crop using GT boxes

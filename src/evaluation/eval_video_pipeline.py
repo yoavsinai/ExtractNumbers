@@ -123,7 +123,9 @@ def main():
     random.seed(42)
     eval_videos = []
     
-    if args.balanced:
+    if args.max_samples <= 0 or args.max_samples is None:
+        eval_videos = video_samples
+    elif args.balanced:
         target_per_cat = args.max_samples // len(samples_by_cat)
         for cat, samps in samples_by_cat.items():
             random.shuffle(samps)

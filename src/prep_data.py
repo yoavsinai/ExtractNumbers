@@ -96,6 +96,19 @@ def main():
     else:
         print("\n--- PHASE 2 Skipped (Augmentations Disabled) ---")
 
+    print("\n--- PHASE 3: Converting Video Datasets ---")
+    video_conversion_script = os.path.join(base_dir, "src", "data", "convert_to_video_data.py")
+    if os.path.exists(video_conversion_script):
+        result = subprocess.run(
+            [sys.executable, video_conversion_script],
+            capture_output=False,  # Show output in real-time
+            text=True
+        )
+        if result.returncode != 0:
+            print("\n[!] Warning: Video conversion script exited with non-zero status")
+    else:
+        print(f"[!] Video conversion script not found: {video_conversion_script}")
+
     print("\n=== All Data Datasets Successfully Fetched & Built! ===")
 
 if __name__ == "__main__":
